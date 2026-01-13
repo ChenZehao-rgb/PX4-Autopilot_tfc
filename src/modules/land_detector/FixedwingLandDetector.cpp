@@ -71,10 +71,10 @@ bool FixedwingLandDetector::_get_landed_state()
 				&& launch_detection_status.launch_detection_state == launch_detection_status_s::STATE_WAITING_FOR_LAUNCH;
 
 		// Check if we're in runway takeoff early phase (throttle ramp or clamped to runway)
-		const bool in_runway_takeoff = hrt_elapsed_time(&fixed_wing_runway_control.timestamp) < 500_ms
-					       && fixed_wing_runway_control.runway_takeoff_state < fixed_wing_runway_control_s::STATE_CLIMBOUT;
+		const bool waiting_for_auto_runway_climbout = hrt_elapsed_time(&fixed_wing_runway_control.timestamp) < 500_ms
+				&& fixed_wing_runway_control.runway_takeoff_state < fixed_wing_runway_control_s::STATE_CLIMBOUT;
 
-		if (waiting_for_catapult_launch || in_runway_takeoff) {
+		if (waiting_for_catapult_launch || waiting_for_auto_runway_climbout) {
 			return true;
 		}
 	}
