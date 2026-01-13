@@ -140,7 +140,7 @@ jobs:
 
   basic-tests:
     name: Basic Tests [${{ matrix.check }}]
-    needs: [gate-checks, mavsdk-python-checks]
+    needs: [gate-checks, mavsdk-python-checks, build-sitl]
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/px4/px4-dev:v1.16.0
@@ -160,8 +160,31 @@ jobs:
       - name: Git ownership workaround
         run: git config --system --add safe.directory '*'
 
+      - name: Cache Restore
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.ccache
+          key: sitl-ccache-${{ github.sha }}
+          restore-keys: |
+            sitl-ccache-${{ github.base_ref || github.ref_name }}-
+            sitl-ccache-
+
+      - name: Configure ccache
+        run: |
+          mkdir -p ~/.ccache
+          echo "base_dir = ${GITHUB_WORKSPACE}" > ~/.ccache/ccache.conf
+          echo "compression = true" >> ~/.ccache/ccache.conf
+          echo "compression_level = 6" >> ~/.ccache/ccache.conf
+          echo "max_size = 120M" >> ~/.ccache/ccache.conf
+          echo "hash_dir = false" >> ~/.ccache/ccache.conf
+          echo "compiler_check = content" >> ~/.ccache/ccache.conf
+          ccache -s
+
       - name: Building [${{ matrix.check }}]
         run: make ${{ matrix.check }}
+
+      - name: Show ccache stats
+        run: ccache -s
 
   # TODO: Re-enable clang-tidy once container compatibility issues are resolved
   # The px4io/px4-dev-clang:2024-05-18 image needs further investigation for
