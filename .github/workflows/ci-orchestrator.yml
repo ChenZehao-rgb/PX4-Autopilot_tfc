@@ -317,12 +317,9 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup environment
-        run: |
-          apt-get update
-          apt-get install -y git make cmake python3 python3-pip ccache
-
       - name: Install PX4 dependencies
+        env:
+          RUNS_IN_DOCKER: true
         run: ./Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools
 
       - name: Cache Restore
