@@ -943,11 +943,17 @@ jobs:
             logs/**/**/**/*.ulg
             build/px4_sitl_default/tmp_ros_tests/rootfs/log/**/*.ulg
 
-  mavros-mission-tests:
-    name: MAVROS Mission Tests
+  mavros-tests:
+    name: MAVROS Tests [${{ matrix.config.name }}]
     needs: [ubuntu-builds, macos-build, itcm-check, flash-analysis, failsafe-sim]
     if: always() && needs.ubuntu-builds.result == 'success' && needs.macos-build.result == 'success' && needs.itcm-check.result == 'success' && needs.flash-analysis.result == 'success'
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu22-full-x64,"run-id=${{ github.run_id }}",spot=false]
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - {name: "Mission", test: "mavros_posix_tests_missions.test", params: "mission:=MC_mission_box vehicle:=iris"}
+          - {name: "Offboard", test: "mavros_posix_tests_offboard_posctl.test", params: "vehicle:=iris"}
     container:
       image: px4io/px4-dev-ros-noetic:2021-09-08
     steps:
@@ -966,41 +972,11 @@ jobs:
           . /opt/ros/noetic/setup.bash
           make px4_sitl_default gazebo
 
-      - name: Run mission tests
+      - name: Run MAVROS tests
         shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
-          test/rostest_px4_run.sh mavros_posix_tests_missions.test mission:=MC_mission_box vehicle:=iris
-        timeout-minutes: 30
-
-  mavros-offboard-tests:
-    name: MAVROS Offboard Tests
-    needs: [ubuntu-builds, macos-build, itcm-check, flash-analysis, failsafe-sim]
-    if: always() && needs.ubuntu-builds.result == 'success' && needs.macos-build.result == 'success' && needs.itcm-check.result == 'success' && needs.flash-analysis.result == 'success'
-    runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu22-full-x64,"run-id=${{ github.run_id }}",spot=false]
-    container:
-      image: px4io/px4-dev-ros-noetic:2021-09-08
-    steps:
-      - uses: runs-on/action@v2
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Git ownership workaround
-        run: git config --system --add safe.directory '*'
-
-      - name: Build SITL and Gazebo
-        shell: bash
-        run: |
-          . /opt/ros/noetic/setup.bash
-          make px4_sitl_default gazebo
-
-      - name: Run offboard tests
-        shell: bash
-        run: |
-          . /opt/ros/noetic/setup.bash
-          test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test vehicle:=iris
+          test/rostest_px4_run.sh ${{ matrix.config.test }} ${{ matrix.config.params }}
         timeout-minutes: 30
 
   ros-translation-node:
