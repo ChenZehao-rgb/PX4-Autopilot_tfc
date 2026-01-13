@@ -57,7 +57,7 @@ bool FixedwingLandDetector::_get_landed_state()
 		return true;
 	}
 
-	// Force the landed state to stay landed if we're currently in any takeoff process.
+	// Force the landed state to stay landed if we're currently in an early state of the takeoff state machines.
 	// This prevents premature transitions to in-air during the early takeoff phase.
 	if (_landed_hysteresis.get_state()) {
 		launch_detection_status_s launch_detection_status{};
