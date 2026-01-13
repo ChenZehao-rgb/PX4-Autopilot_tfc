@@ -415,6 +415,25 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Cache Homebrew packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/Homebrew
+            /usr/local/Cellar
+            /opt/homebrew
+          key: macos-homebrew-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('Tools/setup/macos.sh') }}
+          restore-keys: |
+            macos-homebrew-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Cache pip packages
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Caches/pip
+          key: macos-pip-${{ runner.os }}-${{ hashFiles('Tools/setup/requirements.txt') }}
+          restore-keys: |
+            macos-pip-${{ runner.os }}-
+
       - name: Setup
         run: ./Tools/setup/macos.sh
 
@@ -423,10 +442,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.ccache
-          key: macos-${{matrix.config}}-ccache-${{ github.sha }}
+          key: macos-ccache-${{ github.sha }}
           restore-keys: |
-            macos-${{matrix.config}}-ccache-${{ github.base_ref || github.ref_name }}-
-            macos-${{matrix.config}}-ccache-
+            macos-ccache-${{ github.base_ref || github.ref_name }}-
+            macos-ccache-
 
       - name: Configure ccache
         run: |
@@ -434,7 +453,7 @@ jobs:
           echo "base_dir = ${GITHUB_WORKSPACE}" > ~/.ccache/ccache.conf
           echo "compression = true" >> ~/.ccache/ccache.conf
           echo "compression_level = 6" >> ~/.ccache/ccache.conf
-          echo "max_size = 120M" >> ~/.ccache/ccache.conf
+          echo "max_size = 400M" >> ~/.ccache/ccache.conf
           echo "hash_dir = false" >> ~/.ccache/ccache.conf
           echo "compiler_check = content" >> ~/.ccache/ccache.conf
           ccache -s
@@ -451,7 +470,7 @@ jobs:
         uses: actions/cache/save@v4
         with:
           path: ~/.ccache
-          key: macos-${{matrix.config}}-ccache-${{ github.sha }}
+          key: macos-ccache-${{ github.sha }}
 
   itcm-check:
     name: ITCM Check [${{ matrix.config }}]
