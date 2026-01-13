@@ -315,10 +315,10 @@ jobs:
         uses: actions/cache/restore@v4
         with:
           path: ~/.ccache
-          key: sitl-ccache-${{ github.sha }}
+          key: ekf-test-ccache-${{ github.sha }}
           restore-keys: |
-            sitl-ccache-${{ github.base_ref || github.ref_name }}-
-            sitl-ccache-
+            ekf-test-ccache-${{ github.base_ref || github.ref_name }}-
+            ekf-test-ccache-
 
       - name: Configure ccache
         run: |
@@ -326,7 +326,7 @@ jobs:
           echo "base_dir = ${GITHUB_WORKSPACE}" > ~/.ccache/ccache.conf
           echo "compression = true" >> ~/.ccache/ccache.conf
           echo "compression_level = 6" >> ~/.ccache/ccache.conf
-          echo "max_size = 120M" >> ~/.ccache/ccache.conf
+          echo "max_size = 500M" >> ~/.ccache/ccache.conf
           echo "hash_dir = false" >> ~/.ccache/ccache.conf
           echo "compiler_check = content" >> ~/.ccache/ccache.conf
           ccache -s
