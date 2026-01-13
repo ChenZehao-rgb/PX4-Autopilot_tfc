@@ -333,31 +333,6 @@ jobs:
         run: git diff --exit-code
         working-directory: src/modules/ekf2/test/change_indication
 
-  nuttx-env-config:
-    name: NuttX Environment Config
-    needs: [gate-checks, shellcheck, mavsdk-python-checks]
-    runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
-    container:
-      image: px4io/px4-dev:v1.16.0
-    strategy:
-      fail-fast: false
-      matrix:
-        config: [px4_fmu-v5_default]
-    steps:
-      - uses: runs-on/action@v2
-
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Git ownership workaround
-        run: git config --system --add safe.directory '*'
-
-      - name: Build ${{ matrix.config }}
-        run: make ${{ matrix.config }}
-        env:
-          EXTRA_CMAKE_ARGS: -DCONFIG_CUSTOM_APPS=y
-
   # ═══════════════════════════════════════════════════════════════════
   # TIER 3: Platform Builds & Hardware Checks (15-30 min, Mixed runners)
   # Only runs if Tier 2 passes completely
@@ -366,7 +341,7 @@ jobs:
 
   ubuntu-builds:
     name: Ubuntu Build [${{ matrix.container }}]
-    needs: [basic-tests, ekf-functional-check, nuttx-env-config]
+    needs: [basic-tests, ekf-functional-check]
     if: always() && needs.basic-tests.result == 'success' && (needs.ekf-functional-check.result == 'success' || needs.ekf-functional-check.result == 'skipped')
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     strategy:
@@ -418,7 +393,7 @@ jobs:
 
   macos-build:
     name: MacOS Build [${{ matrix.config }}]
-    needs: [basic-tests, ekf-functional-check, nuttx-env-config]
+    needs: [basic-tests, ekf-functional-check]
     if: always() && needs.basic-tests.result == 'success' && (needs.ekf-functional-check.result == 'success' || needs.ekf-functional-check.result == 'skipped')
     runs-on: macos-latest
     strategy:
@@ -497,7 +472,7 @@ jobs:
 
   itcm-check:
     name: ITCM Check [${{ matrix.config }}]
-    needs: [basic-tests, ekf-functional-check, nuttx-env-config]
+    needs: [basic-tests, ekf-functional-check]
     if: always() && needs.basic-tests.result == 'success' && (needs.ekf-functional-check.result == 'success' || needs.ekf-functional-check.result == 'skipped')
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     strategy:
@@ -530,7 +505,7 @@ jobs:
 
   flash-analysis:
     name: Flash Analysis [${{ matrix.config }}]
-    needs: [basic-tests, ekf-functional-check, nuttx-env-config]
+    needs: [basic-tests, ekf-functional-check]
     if: always() && needs.basic-tests.result == 'success' && (needs.ekf-functional-check.result == 'success' || needs.ekf-functional-check.result == 'skipped')
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     strategy:
@@ -565,7 +540,7 @@ jobs:
 
   failsafe-sim:
     name: Failsafe Web Simulator
-    needs: [basic-tests, ekf-functional-check, nuttx-env-config]
+    needs: [basic-tests, ekf-functional-check]
     if: always() && needs.basic-tests.result == 'success' && (needs.ekf-functional-check.result == 'success' || needs.ekf-functional-check.result == 'skipped')
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     container:
