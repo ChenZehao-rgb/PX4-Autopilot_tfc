@@ -513,7 +513,11 @@ jobs:
               boards/nxp/mr-tropic/nuttx-config/scripts/itcm_functions_includes.ld
               boards/nxp/mr-tropic/nuttx-config/scripts/itcm_static_functions.ld
     container:
-      image: px4io/px4-dev:v1.16.0
+      # NOTE: Using v1.17.0-alpha1 instead of v1.16.0 because the codebase requires
+      # the 'lark' Python package (added in commit 0369abd5567 after v1.16.0 release)
+      # for the ROS IDL parser used when building NXP Tropic targets.
+      # TODO: Update to stable v1.17.0 or later once available to match other jobs.
+      image: px4io/px4-dev:v1.17.0-alpha1
     steps:
       - uses: runs-on/action@v2
 
