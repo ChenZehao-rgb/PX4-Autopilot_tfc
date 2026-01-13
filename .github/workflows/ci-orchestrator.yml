@@ -414,6 +414,7 @@ jobs:
     runs-on: macos-latest
     strategy:
       fail-fast: false
+      max-parallel: 1
       matrix:
         config: [
           px4_fmu-v5_default,
