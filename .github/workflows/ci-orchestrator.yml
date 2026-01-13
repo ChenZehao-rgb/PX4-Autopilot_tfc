@@ -970,7 +970,8 @@ jobs:
         shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
-          make px4_sitl_default gazebo
+          make px4_sitl_default
+          make px4_sitl_default sitl_gazebo-classic
 
       - name: Run MAVROS tests
         shell: bash
