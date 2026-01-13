@@ -705,8 +705,9 @@ jobs:
           ./emsdk activate latest
 
       - name: Build failsafe_web
+        shell: bash
         run: |
-          . ./_emscripten_sdk/emsdk_env.sh
+          source _emscripten_sdk/emsdk_env.sh
           make failsafe_web
 
   # ═══════════════════════════════════════════════════════════════════
