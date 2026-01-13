@@ -373,36 +373,40 @@ jobs:
       - name: Setup
         run: ./Tools/setup/macos.sh
 
-      - name: Prepare ccache timestamp
-        id: ccache_cache_timestamp
-        shell: cmake -P {0}
-        run: |
-          string(TIMESTAMP current_date "%Y-%m-%d-%H;%M;%S" UTC)
-          message("::set-output name=timestamp::${current_date}")
-
-      - name: ccache cache files
-        uses: actions/cache@v4
+      - name: Cache Restore
+        id: cache_restore
+        uses: actions/cache/restore@v4
         with:
           path: ~/.ccache
-          key: macos_${{matrix.config}}-ccache-${{steps.ccache_cache_timestamp.outputs.timestamp}}
-          restore-keys: macos_${{matrix.config}}-ccache-
+          key: macos-${{matrix.config}}-ccache-${{ github.sha }}
+          restore-keys: |
+            macos-${{matrix.config}}-ccache-${{ github.base_ref || github.ref_name }}-
+            macos-${{matrix.config}}-ccache-
 
-      - name: Setup ccache
+      - name: Configure ccache
         run: |
           mkdir -p ~/.ccache
           echo "base_dir = ${GITHUB_WORKSPACE}" > ~/.ccache/ccache.conf
           echo "compression = true" >> ~/.ccache/ccache.conf
           echo "compression_level = 6" >> ~/.ccache/ccache.conf
-          echo "max_size = 40M" >> ~/.ccache/ccache.conf
+          echo "max_size = 120M" >> ~/.ccache/ccache.conf
           echo "hash_dir = false" >> ~/.ccache/ccache.conf
+          echo "compiler_check = content" >> ~/.ccache/ccache.conf
           ccache -s
           ccache -z
 
       - name: Make ${{matrix.config}}
-        run: |
-          ccache -z
-          make ${{matrix.config}}
-          ccache -s
+        run: make ${{matrix.config}}
+
+      - name: Show ccache stats
+        run: ccache -s
+
+      - name: Cache Save
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.ccache
+          key: macos-${{matrix.config}}-ccache-${{ github.sha }}
 
   itcm-check:
     name: ITCM Check [${{ matrix.config }}]
