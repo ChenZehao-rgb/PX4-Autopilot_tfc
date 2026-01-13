@@ -961,11 +961,13 @@ jobs:
         run: git config --system --add safe.directory '*'
 
       - name: Build SITL and Gazebo
+        shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
           make px4_sitl_default gazebo
 
       - name: Run mission tests
+        shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
           test/rostest_px4_run.sh mavros_posix_tests_missions.test mission:=MC_mission_box vehicle:=iris
@@ -989,11 +991,13 @@ jobs:
         run: git config --system --add safe.directory '*'
 
       - name: Build SITL and Gazebo
+        shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
           make px4_sitl_default gazebo
 
       - name: Run offboard tests
+        shell: bash
         run: |
           . /opt/ros/noetic/setup.bash
           test/rostest_px4_run.sh mavros_posix_tests_offboard_posctl.test vehicle:=iris
