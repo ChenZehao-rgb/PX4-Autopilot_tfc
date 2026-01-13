@@ -1034,7 +1034,7 @@ jobs:
 
   build-all-targets-gate:
     name: Full Build Check
-    needs: [sitl-tests, ros-integration-tests, mavros-mission-tests, mavros-offboard-tests, ros-translation-node]
+    needs: [sitl-tests, ros-integration-tests, mavros-tests, ros-translation-node]
     if: |
       always() &&
       (github.ref == 'refs/heads/main' ||
@@ -1062,7 +1062,7 @@ jobs:
 
   ci-summary:
     name: CI Summary
-    needs: [gate-checks, shellcheck, mavsdk-python-checks, build-sitl, basic-tests, ubuntu-builds, macos-build, sitl-tests, ros-integration-tests]
+    needs: [gate-checks, shellcheck, mavsdk-python-checks, build-sitl, basic-tests, ekf-functional-check, ubuntu-builds, macos-build, itcm-check, flash-analysis, failsafe-sim, sitl-tests, ros-integration-tests, mavros-tests, ros-translation-node]
     if: always()
     runs-on: ubuntu-latest
     steps:
@@ -1076,29 +1076,35 @@ jobs:
         run: |
           echo "Tier 2 (Build SITL): ${{ needs.build-sitl.result }}"
           echo "Tier 2 (Basic Tests): ${{ needs.basic-tests.result }}"
+          echo "Tier 2 (EKF Functional): ${{ needs.ekf-functional-check.result }}"
 
       - name: Check Tier 3 Status
         run: |
           echo "Tier 3 (Ubuntu Builds): ${{ needs.ubuntu-builds.result }}"
           echo "Tier 3 (MacOS Build): ${{ needs.macos-build.result }}"
+          echo "Tier 3 (ITCM Check): ${{ needs.itcm-check.result }}"
+          echo "Tier 3 (Flash Analysis): ${{ needs.flash-analysis.result }}"
+          echo "Tier 3 (Failsafe Sim): ${{ needs.failsafe-sim.result }}"
 
       - name: Check Tier 4 Status
         run: |
           echo "Tier 4 (SITL Tests): ${{ needs.sitl-tests.result }}"
           echo "Tier 4 (ROS Integration): ${{ needs.ros-integration-tests.result }}"
+          echo "Tier 4 (MAVROS Tests): ${{ needs.mavros-tests.result }}"
+          echo "Tier 4 (ROS Translation): ${{ needs.ros-translation-node.result }}"
 
       - name: Overall Result
         run: |
-          if [ "${{ needs.gate-checks.result }}" != "success" ] || [ "${{ needs.mavsdk-python-checks.result }}" != "success" ]; then
+          if [ "${{ needs.gate-checks.result }}" != "success" ] || [ "${{ needs.shellcheck.result }}" != "success" ] || [ "${{ needs.mavsdk-python-checks.result }}" != "success" ]; then
             echo "❌ Failed at Tier 1 (Gate Checks) - Stopped early to save costs"
             exit 1
-          elif [ "${{ needs.build-sitl.result }}" != "success" ] || [ "${{ needs.basic-tests.result }}" != "success" ]; then
+          elif [ "${{ needs.build-sitl.result }}" != "success" ] || [ "${{ needs.basic-tests.result }}" != "success" ] || [ "${{ needs.ekf-functional-check.result }}" != "success" ]; then
             echo "❌ Failed at Tier 2 (Basic Builds) - Stopped before expensive jobs"
             exit 1
-          elif [ "${{ needs.ubuntu-builds.result }}" != "success" ] || [ "${{ needs.macos-build.result }}" != "success" ]; then
+          elif [ "${{ needs.ubuntu-builds.result }}" != "success" ] || [ "${{ needs.macos-build.result }}" != "success" ] || [ "${{ needs.itcm-check.result }}" != "success" ] || [ "${{ needs.flash-analysis.result }}" != "success" ] || [ "${{ needs.failsafe-sim.result }}" != "success" ]; then
             echo "❌ Failed at Tier 3 (Platform Builds) - Stopped before integration tests"
             exit 1
-          elif [ "${{ needs.sitl-tests.result }}" != "success" ] || [ "${{ needs.ros-integration-tests.result }}" != "success" ]; then
+          elif [ "${{ needs.sitl-tests.result }}" != "success" ] || [ "${{ needs.ros-integration-tests.result }}" != "success" ] || [ "${{ needs.mavros-tests.result }}" != "success" ] || [ "${{ needs.ros-translation-node.result }}" != "success" ]; then
             echo "❌ Failed at Tier 4 (Integration Tests)"
             exit 1
           else
