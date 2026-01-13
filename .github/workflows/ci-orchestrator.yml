@@ -579,7 +579,7 @@ jobs:
 
       - name: Build failsafe_web
         run: |
-          source emsdk/emsdk_env.sh
+          . emsdk/emsdk_env.sh
           make failsafe_web
 
   # ═══════════════════════════════════════════════════════════════════
