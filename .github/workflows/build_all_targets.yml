@@ -6,20 +6,15 @@
 name: Build all targets
 
 on:
-  # Triggered by CI orchestrator for PRs (after all tiers pass)
+  # Triggered by CI orchestrator for all branches/PRs (after all tiers pass)
   workflow_run:
     workflows: ["CI Pipeline (Orchestrator)"]
     types: [completed]
     branches: ['**']
-  # Direct trigger for tagged releases
+  # Direct trigger ONLY for tagged releases (orchestrator doesn't run on tags)
   push:
     tags:
       - 'v*'
-    branches:
-      - 'main'
-      - 'stable'
-      - 'beta'
-      - 'release/**'
     paths-ignore:
       - 'docs/**'
   # Manual trigger for debugging
