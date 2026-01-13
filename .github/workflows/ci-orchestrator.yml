@@ -560,36 +560,36 @@ jobs:
       - name: Git ownership workaround
         run: git config --system --add safe.directory '*'
 
-      - name: Build Target
+      - name: Build with changes (${{ matrix.target }})
         run: make ${{ matrix.target }}_flash-analysis
 
-      - name: Store the ELF with the change
+      - name: Save ELF binary with current changes
         run: cp ./build/**/*.elf ./with-change.elf
 
-      - name: Clean previous build
+      - name: Clean workspace for baseline build
         run: |
           make clean
           make distclean
           make submodulesclean
 
-      - name: If it's a PR checkout the base branch
+      - name: Checkout PR base branch for comparison
         if: ${{ github.event.pull_request }}
         run: git checkout ${{ github.event.pull_request.base.ref }}
 
-      - name: If it's a push checkout the previous commit
+      - name: Checkout previous commit for comparison
         if: github.event_name == 'push'
         run: git checkout ${{ github.event.before }}
 
-      - name: Update submodules
+      - name: Update submodules for baseline
         run: make submodulesupdate
 
-      - name: Build
+      - name: Build baseline (${{ matrix.target }})
         run: make ${{ matrix.target }}_flash-analysis
 
-      - name: Store the ELF before the change
+      - name: Save baseline ELF binary
         run: cp ./build/**/*.elf ./before-change.elf
 
-      - name: bloaty-action
+      - name: Compare flash usage (bloaty)
         uses: PX4/bloaty-action@v1.0.0
         id: bloaty-step
         with:
@@ -597,7 +597,7 @@ jobs:
           bloaty-additional-args: -d sections,symbols -s vm -n 20
           output-to-summary: true
 
-      - name: Generate output
+      - name: Export results for PR comment
         id: gen-output
         run: |
           EOF=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
@@ -621,7 +621,7 @@ jobs:
     steps:
       - uses: runs-on/action@v2
 
-      - name: Find Comment
+      - name: Find existing flash analysis comment
         uses: peter-evans/find-comment@v3
         id: fc
         with:
@@ -629,12 +629,12 @@ jobs:
           comment-author: 'github-actions[bot]'
           body-includes: FLASH Analysis
 
-      - name: Set Build Time
+      - name: Generate timestamp for comment
         id: bt
         run: |
           echo "timestamp=$(date +'%Y-%m-%dT%H:%M:%S')" >> $GITHUB_OUTPUT
 
-      - name: Create or update comment
+      - name: Post flash analysis to PR
         if: |
           steps.fc.outputs.comment-id != '' ||
           env.V5X-SUMMARY-MAP-ABS >= fromJSON(env.MIN_FLASH_POS_DIFF_FOR_COMMENT) ||
