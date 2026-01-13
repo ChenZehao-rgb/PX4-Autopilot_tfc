@@ -172,13 +172,8 @@ jobs:
     needs: [gate-checks, mavsdk-python-checks]
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     container:
-      image: px4io/px4-dev-clang:2021-09-08
+      image: px4io/px4-dev-clang:2024-05-18
     steps:
-      - name: Update glibc for runs-on action compatibility
-        run: |
-          apt-get update
-          apt-get install -y libc6
-
       - uses: runs-on/action@v2
 
       - uses: actions/checkout@v4
