@@ -1004,40 +1004,51 @@ jobs:
         timeout-minutes: 30
 
   ros-translation-node:
-    name: ROS Translation Node [${{ matrix.ros_distro }}]
+    name: ROS Translation Node [${{ matrix.config.ros_version }}]
     needs: [ubuntu-builds, macos-build, itcm-check, flash-analysis, failsafe-sim]
     if: always() && needs.ubuntu-builds.result == 'success' && needs.macos-build.result == 'success' && needs.itcm-check.result == 'success' && needs.flash-analysis.result == 'success'
     runs-on: [runs-on,runner=4cpu-linux-x64,image=ubuntu24-full-x64,"run-id=${{ github.run_id }}",spot=false]
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - ros_distro: humble
-            ubuntu_distro: jammy
-          - ros_distro: jazzy
-            ubuntu_distro: noble
+        config:
+          - {ros_version: "humble", ubuntu: "jammy"}
+          - {ros_version: "jazzy", ubuntu: "noble"}
     container:
-      image: px4io/px4-dev-ros2-${{ matrix.ros_distro }}:latest
+      image: rostooling/setup-ros-docker:ubuntu-${{ matrix.config.ubuntu }}-latest
     steps:
       - uses: runs-on/action@v2
 
-      - uses: actions/checkout@v4
+      - name: Setup ROS 2 (${{ matrix.config.ros_version }})
+        uses: ros-tooling/setup-ros@v0.7
+        with:
+          required-ros-distributions: ${{ matrix.config.ros_version }}
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       - name: Git ownership workaround
         run: git config --system --add safe.directory '*'
 
-      - name: Build and test translation node
+      - name: Check .msg file versioning
+        if: github.event_name == 'pull_request'
         shell: bash
         run: |
-          . /opt/ros/${{ matrix.ros_distro }}/setup.bash
-          mkdir -p /opt/px4_ws/src
-          cd /opt/px4_ws/src
-          ln -s ${GITHUB_WORKSPACE} px4
-          cd ..
-          colcon build --packages-select px4_msgs translation_node
-          colcon test --packages-select translation_node
+          ./Tools/ci/check_msg_versioning.sh ${{ github.event.pull_request.base.sha }} ${{github.event.pull_request.head.sha}}
+
+      - name: Build and test
+        shell: bash
+        run: |
+          ros_ws=/ros_ws
+          mkdir -p $ros_ws/src
+          ./Tools/copy_to_ros_ws.sh $ros_ws
+          cd $ros_ws
+          source /opt/ros/${{ matrix.config.ros_version }}/setup.sh
+          colcon build --cmake-args -DCMAKE_BUILD_TYPE=Release --symlink-install --event-handlers=console_cohesion+
+          source ./install/setup.sh
+          ./build/translation_node/translation_node_unit_tests
 
   # ═══════════════════════════════════════════════════════════════════
   # TIER 5: Full Build Matrix (30-60 min, AWS 8cpu)
