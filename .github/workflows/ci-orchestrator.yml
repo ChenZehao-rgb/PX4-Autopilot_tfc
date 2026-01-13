@@ -361,22 +361,25 @@ jobs:
         ]
     container:
       image: ${{ matrix.container }}
+      volumes:
+        - /github/workspace:/github/workspace
     env:
       RUNS_IN_DOCKER: true
     steps:
       - uses: runs-on/action@v2
 
-      - name: Install git
+      - name: Install git and configure safe directory
         run: |
-          apt-get update
-          apt-get install -y git
+          apt update && apt install git -y
+          git config --global --add safe.directory $(realpath .)
 
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Install PX4 dependencies
-        run: ./Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools
+      - name: Install PX4 dependencies and build
+        run: |
+          ./Tools/setup/ubuntu.sh --no-nuttx --no-sim-tools
 
       - name: Cache Restore
         uses: actions/cache/restore@v4
