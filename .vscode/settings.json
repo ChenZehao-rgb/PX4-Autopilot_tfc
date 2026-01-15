@@ -129,4 +129,6 @@
         "yaml.schemas": {
                 "${workspaceFolder}/validation/module_schema.yaml": "${workspaceFolder}/src/modules/*/module.yaml"
         },
+        "ros.distro": "noetic",
+        "ROS2.distro": "noetic",
 }

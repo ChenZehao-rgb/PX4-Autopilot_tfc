@@ -1,0 +1,5 @@
+menuconfig DRIVERS_PRESSURE_FORCE_SENSOR
+	bool "pressure_force_sensor"
+	default n
+	---help---
+		Enable support for pressure_force_sensor
