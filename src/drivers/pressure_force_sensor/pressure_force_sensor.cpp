@@ -81,60 +81,10 @@ private:
         }
     }
 
-    /** 统一字节流解析：支持乱流/分段/粘包，17 字节成帧：'R' + 16 ASCII 数字 */
-    // void handle_bytes(const char *data, size_t len) {
-    //     for (size_t i = 0; i < len; i++) {
-    //         char c = data[i];
-
-    //         if (_frame_len == 0) {
-    //             if (c == 'R') {
-    //                 _frame_buf[_frame_len++] = c;
-    //             }
-    //             continue;
-    //         }
-
-    //         if (_frame_len < sizeof(_frame_buf)) {
-    //             _frame_buf[_frame_len++] = c;
-    //         }
-
-    //         if (_frame_len == 17) {
-    //             msg.timestamp = hrt_absolute_time();
-
-    //             for (int j = 0; j < 4; j++) {
-    //                 char digits[5] = {0};
-    //                 memcpy(digits, &_frame_buf[1 + j * 4], 4);
-    //                 unsigned long val = strtoul(digits, nullptr, 10);
-    //                 switch (j) {
-    //                     case 0: msg.sensor1 = static_cast<uint16_t>(val); break;
-    //                     case 1: msg.sensor2 = static_cast<uint16_t>(val); break;
-    //                     case 2: msg.sensor3 = static_cast<uint16_t>(val); break;
-    //                     case 3: msg.sensor4 = static_cast<uint16_t>(val); break;
-    //                 }
-    //             }
-
-    //             _pub.publish(msg);
-    //             if (_use_debug)
-    //             {
-    //                 _debug_msg.timestamp = msg.timestamp;
-    //                 _debug_msg.data[0] = msg.sensor1;
-    //                 _debug_msg.data[1] = msg.sensor2;
-    //                 _debug_msg.data[2] = msg.sensor3;
-    //                 _debug_msg.data[3] = msg.sensor4;
-    //                 _debug_pub.publish(_debug_msg);
-    //             }
-    //             _frame_len = 0; // 下一帧
-    //         }
-    //     }
-    // }
-
-    // 取 BE/LE 32 位有符号
+    // 取 BE 32 位有符号
     static inline int32_t be_i32(const uint8_t *p) {
         return (int32_t)(((uint32_t)p[0] << 24) | ((uint32_t)p[1] << 16) |
                         ((uint32_t)p[2] << 8)  |  (uint32_t)p[3]);
-    }
-    static inline int32_t le_i32(const uint8_t *p) {
-        return (int32_t)((uint32_t)p[0] | ((uint32_t)p[1] << 8) |
-                        ((uint32_t)p[2] << 16) | ((uint32_t)p[3] << 24));
     }
 
     static inline void shift_buffer(uint8_t *buf, size_t &len, size_t n) {
@@ -152,65 +102,49 @@ private:
             else { shift_buffer(_frame_buf, _frame_len, 1); _frame_buf[_frame_len++] = in[i]; }
 
             while (_frame_len >= 24) {
-                // 同步帧头 0x01 0x50
+                // 同步帧头 FE 01 50 FF
                 size_t start = 0;
-                while (start + 1 < _frame_len) {
-                    if (_frame_buf[start] == 0x01 && _frame_buf[start + 1] == 0x50) break;
+                while (start + 3 < _frame_len) {
+                    if (_frame_buf[start] == 0xFE &&
+                        _frame_buf[start + 1] == 0x01 &&
+                        _frame_buf[start + 2] == 0x50 &&
+                        _frame_buf[start + 3] == 0xFF) {
+                        break;
+                    }
                     start++;
                 }
                 if (start) shift_buffer(_frame_buf, _frame_len, start);
                 if (_frame_len < 24) break;
 
-                // 检查帧尾 0xFF 0xFE
-                if (!(_frame_buf[22] == 0xFF && _frame_buf[23] == 0xFE)) {
+                // 检查帧尾 CF FC CC FF
+                if (!(_frame_buf[20] == 0xCF &&
+                      _frame_buf[21] == 0xFC &&
+                      _frame_buf[22] == 0xCC &&
+                      _frame_buf[23] == 0xFF )) {
                     shift_buffer(_frame_buf, _frame_len, 1);
                     continue;
                 }
 
-                // 数据区（头后到尾前）：第 2..21 字节（共 20B）
-                const uint8_t *payload = &_frame_buf[2]; // 长度 20B：可能含对齐字节 + 16B通道 + 4B未知
-                int32_t v[4] = {0};
-                bool parsed = false;
-
-                // 1) 自适应：尝试 0..3 的起始偏移，按 BE32
-                for (int off = 0; off <= 3 && !parsed; off++) {
-                    // 要保证 off+16 <= 20（四个通道 16B 都在 payload 内）
-                    if (off + 16 > 20) break;
-
-                    // 判定“最高字节是否像符号扩展”（全 0 或全 FF）
-                    bool ok = true;
-                    for (int k = 0; k < 4; k++) {
-                        uint8_t msb = payload[off + k*4 + 0]; // BE32 的最高字节
-                        if (!(msb == 0x00 || msb == 0xFF)) { ok = false; break; }
-                    }
-                    if (!ok) continue;
-
-                    for (int k = 0; k < 4; k++) v[k] = be_i32(payload + off + k*4);
-                    parsed = true;
-                }
-
-                // 2) 兜底：按原先 LE32@偏移0
-                if (!parsed) {
-                    v[0] = le_i32(payload + 0);
-                    v[1] = le_i32(payload + 4);
-                    v[2] = le_i32(payload + 8);
-                    v[3] = le_i32(payload + 12);
-                }
+                // 按BE32解析数据
+                int32_t v0 = be_i32(&_frame_buf[4]);
+                int32_t v1 = be_i32(&_frame_buf[8]);
+                int32_t v2 = be_i32(&_frame_buf[12]);
+                int32_t v3 = be_i32(&_frame_buf[16]);
 
                 // 发布
                 msg.timestamp = hrt_absolute_time();
-                msg.sensor1 = v[0];
-                msg.sensor2 = v[1];
-                msg.sensor3 = v[2];
-                msg.sensor4 = v[3];
+                msg.sensor1 = v0;
+                msg.sensor2 = v1;
+                msg.sensor3 = v2;
+                msg.sensor4 = v3;
                 _pub.publish(msg);
 
                 if (_use_debug) {
                     _debug_msg.timestamp = msg.timestamp;
-                    _debug_msg.data[0] = msg.sensor1;
-                    _debug_msg.data[1] = msg.sensor2;
-                    _debug_msg.data[2] = msg.sensor3;
-                    _debug_msg.data[3] = msg.sensor4;
+                    _debug_msg.data[0] = v0;
+                    _debug_msg.data[1] = v1;
+                    _debug_msg.data[2] = v2;
+                    _debug_msg.data[3] = v3;
                     _debug_pub.publish(_debug_msg);
                 }
 
