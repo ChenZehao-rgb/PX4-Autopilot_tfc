@@ -45,6 +45,8 @@ using namespace px4::logger;
 
 void LoggedTopics::add_default_topics()
 {
+	add_topic("pressure_force_sensor");
+
 	add_optional_topic("ackermann_velocity_setpoint", 100);
 	add_topic("action_request");
 	add_topic("actuator_armed");
