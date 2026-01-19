@@ -164,7 +164,6 @@ set(msg_files
 	PowerButtonState.msg
 	PowerMonitor.msg
 	PpsCapture.msg
-	PressureForceSensor.msg
 	PurePursuitStatus.msg
 	PwmInput.msg
 	Px4ioStatus.msg
@@ -264,6 +263,12 @@ set(msg_files
 	versioned/VehicleRatesSetpoint.msg
 	versioned/VehicleStatus.msg
 	versioned/VtolVehicleStatus.msg
+
+	PressureForceSensor.msg
+	ThrustControlData.msg
+	ThrustData.msg
+	ThrustControl.msg
+
 )
 list(SORT msg_files)
 
