@@ -265,6 +265,7 @@ set(msg_files
 	versioned/VtolVehicleStatus.msg
 
 	PressureForceSensor.msg
+	PressureForceSensorRef.msg
 	ThrustControlData.msg
 	ThrustData.msg
 	ThrustControl.msg

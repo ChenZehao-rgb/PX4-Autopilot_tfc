@@ -429,13 +429,13 @@ int ThrustFeedbackControl::main()
                 // float des2 = clean_desired(thrustdesireddata.control[1], 2);
                 // float des3 = clean_desired(thrustdesireddata.control[2], 3);
                 // float des4 = clean_desired(thrustdesireddata.control[3], 4);
-                float des1 = 0.3;
+                float des1 = _param_tfc_pwm_to_thrust_factor1.get();
                 float des2 = clean_desired(thrustdesireddata.control[1], 2);
                 float des3 = clean_desired(thrustdesireddata.control[2], 3);
                 float des4 = clean_desired(thrustdesireddata.control[3], 4);
 
                 // 再用“干净”的值去算 _thrust_desired
-                _thrust_desired(0) = _param_tfc_pwm_to_thrust_factor1.get() * des1;
+                _thrust_desired(0) = des1;
                 _thrust_desired(1) = _param_tfc_pwm_to_thrust_factor2.get() * des2;
                 _thrust_desired(2) = _param_tfc_pwm_to_thrust_factor3.get() * des3;
                 _thrust_desired(3) = _param_tfc_pwm_to_thrust_factor4.get() * des4;

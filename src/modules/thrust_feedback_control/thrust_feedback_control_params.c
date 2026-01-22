@@ -56,7 +56,6 @@ PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 2.0f);
  * @max 20.0
  * @decimal 2
  * @increment 0.01
- * @reboot_required true
  * @group Thrust Feedback Control
  */
 PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_1, 2.312f);
