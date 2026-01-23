@@ -46,6 +46,7 @@ using namespace px4::logger;
 void LoggedTopics::add_default_topics()
 {
 	add_topic("pressure_force_sensor", 10);
+	add_topic("pressure_force_sensor_ref", 10);
 	add_topic("thrust_data", 10);
 	add_topic("thrust_control_data", 10);
 	add_topic("thrust_control", 10);

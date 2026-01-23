@@ -99,55 +99,40 @@ private:
             if (_frame_len < sizeof(_frame_buf)) _frame_buf[_frame_len++] = in[i];
             else { shift_buffer(_frame_buf, _frame_len, 1); _frame_buf[_frame_len++] = in[i]; }
 
-            while (_frame_len >= 24) {
+            while (_frame_len >= 12) {
                 // 同步帧头 FE 01 50 FF
                 size_t start = 0;
                 while (start + 3 < _frame_len) {
                     if (_frame_buf[start] == 0xFE &&
                         _frame_buf[start + 1] == 0x01 &&
                         _frame_buf[start + 2] == 0x50 &&
-                        _frame_buf[start + 3] == 0xFF) {
+                        _frame_buf[start + 3] == 0x00) {
                         break;
                     }
                     start++;
                 }
                 if (start) shift_buffer(_frame_buf, _frame_len, start);
-                if (_frame_len < 24) break;
+                if (_frame_len < 12) break;
 
                 // 检查帧尾 CF FC CC FF
-                if (!(_frame_buf[20] == 0xCF &&
-                      _frame_buf[21] == 0xFC &&
-                      _frame_buf[22] == 0xCC &&
-                      _frame_buf[23] == 0xFF )) {
+                if (!(_frame_buf[8] == 0xCF &&
+                      _frame_buf[9] == 0xFC &&
+                      _frame_buf[10] == 0xCC &&
+                      _frame_buf[11] == 0xFF )) {
                     shift_buffer(_frame_buf, _frame_len, 1);
                     continue;
                 }
 
                 // 按BE32解析数据
                 int32_t v0 = be_i32(&_frame_buf[4]);
-                int32_t v1 = be_i32(&_frame_buf[8]);
-                int32_t v2 = be_i32(&_frame_buf[12]);
-                int32_t v3 = be_i32(&_frame_buf[16]);
 
                 // 发布
                 msg.timestamp = hrt_absolute_time();
                 msg.sensor1 = v0;
-                msg.sensor2 = v1;
-                msg.sensor3 = v2;
-                msg.sensor4 = v3;
                 _pub.publish(msg);
 
-                if (_use_debug) {
-                    _debug_msg.timestamp = msg.timestamp;
-                    _debug_msg.data[0] = v0;
-                    _debug_msg.data[1] = v1;
-                    _debug_msg.data[2] = v2;
-                    _debug_msg.data[3] = v3;
-                    _debug_pub.publish(_debug_msg);
-                }
-
                 // 消费整帧
-                shift_buffer(_frame_buf, _frame_len, 24);
+                shift_buffer(_frame_buf, _frame_len, 12);
             }
         }
     }
@@ -162,7 +147,6 @@ private:
     // 运行时选项
     const char *_device{"/dev/ttyS3"};
     int _baudrate{115200};
-    bool _use_debug{false};
 
     // 串口 fd
     int _fd{-1};
@@ -241,8 +225,6 @@ int PressureForceSensorRef::configure_port(int fd, speed_t baud)
 
 int PressureForceSensorRef::init()
 {
-    _debug_msg.id = 1;
-
     // 启动读线程（阻塞读），不要在工作队列里阻塞
     g_instance = this;
     _reader_task = px4_task_spawn_cmd(
