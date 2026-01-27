@@ -153,14 +153,14 @@ void IOLC_Calculate(IOLC *iolc)
 		*(iolc->a3*iolc->motorSpeed*iolc->motorSpeed*iolc->motorSpeed + iolc->a2*iolc->motorSpeed*iolc->motorSpeed + iolc->a1*iolc->motorSpeed);
 	iolc->g_x = (iolc->b0*(3*iolc->c3*iolc->motorSpeed*iolc->motorSpeed + 2*iolc->c2*iolc->motorSpeed + iolc->c1));
     iolc->u_fb = ((iolc->v - iolc->f_x) / iolc->g_x);
-	iolc->u_fb = (iolc->u_fb > 0.4) ? 0.4 : ((iolc->u_fb < 0.0) ? 0.0 : iolc->u_fb);
+	iolc->u_fb = (iolc->u_fb > 1) ? 1 : ((iolc->u_fb < 0.0) ? 0.0 : iolc->u_fb);
     iolc->u = static_cast<float>(iolc->u_ff) + iolc->u_fb_coeff * static_cast<float>(iolc->u_fb);
-    iolc->u = (iolc->u > 0.4) ? 0.4 : ((iolc->u < 0.0) ? 0.0 : iolc->u);
+    iolc->u = (iolc->u > 1) ? 1 : ((iolc->u < 0.0) ? 0.0 : iolc->u);
 
 	/* Using Euler Integration Method to Calculate the Motor Speed */
 	iolc->motorSpeed_dot = (iolc->a3*iolc->motorSpeed*iolc->motorSpeed*iolc->motorSpeed + iolc->a2*iolc->motorSpeed*iolc->motorSpeed + iolc->a1*iolc->motorSpeed + iolc->b0*iolc->u);
 	iolc->motorSpeed = iolc->motorSpeed + iolc->motorSpeed_dot*dt;
-	iolc->motorSpeed = (iolc->motorSpeed > 4000) ? 4000 : ((iolc->motorSpeed < 100) ? 100 : iolc->motorSpeed);
+	// iolc->motorSpeed = (iolc->motorSpeed > 4000) ? 4000 : ((iolc->motorSpeed < 100) ? 100 : iolc->motorSpeed);
 }
 
 void IOLC_Calculate2(IOLC2 *iolc)
@@ -377,7 +377,7 @@ int ThrustFeedbackControl::main()
                 /*
                     obtain the raw thrust data from the sensor
                 */
-                thrustdata.thrust_raw_data_1 = (sensordata.sensor1 + _param_sensor1_bias1.get() + _param_sensor1_bias2.get()) / 1000.0f;
+                thrustdata.thrust_raw_data_1 = (sensordata.sensor1 * _param_sensor1_bias1.get() + _param_sensor1_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_2 = (sensordata.sensor2 + _param_sensor2_bias1.get() + _param_sensor2_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_3 = (sensordata.sensor3 + _param_sensor3_bias1.get() + _param_sensor3_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_4 = (sensordata.sensor4 + _param_sensor4_bias1.get() + _param_sensor4_bias2.get()) / 1000.0f;
