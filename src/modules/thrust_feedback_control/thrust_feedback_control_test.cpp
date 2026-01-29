@@ -390,7 +390,7 @@ int ThrustFeedbackControl::main()
                 thrustdata.thrust_raw_data_2 = (sensordata.sensor2 + _param_sensor2_bias1.get() + _param_sensor2_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_3 = (sensordata.sensor3 + _param_sensor3_bias1.get() + _param_sensor3_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_4 = (sensordata.sensor4 + _param_sensor4_bias1.get() + _param_sensor4_bias2.get()) / 1000.0f;
-                thrustdata.thrust_raw_data_1 = (thrustdata.thrust_raw_data_1 > 2.0f) ? 2.0f : ((thrustdata.thrust_raw_data_1 < 0.0f) ? 0.0f : thrustdata.thrust_raw_data_1);
+                // thrustdata.thrust_raw_data_1 = (thrustdata.thrust_raw_data_1 > 2.0f) ? 2.0f : ((thrustdata.thrust_raw_data_1 < 0.0f) ? 0.0f : thrustdata.thrust_raw_data_1);
                 thrustdata.thrust_raw_data_2 = (thrustdata.thrust_raw_data_2 > 2.0f) ? 2.0f : ((thrustdata.thrust_raw_data_2 < 0.0f) ? 0.0f : thrustdata.thrust_raw_data_2);
                 thrustdata.thrust_raw_data_3 = (thrustdata.thrust_raw_data_3 > 2.0f) ? 2.0f : ((thrustdata.thrust_raw_data_3 < 0.0f) ? 0.0f : thrustdata.thrust_raw_data_3);
                 thrustdata.thrust_raw_data_4 = (thrustdata.thrust_raw_data_4 > 2.0f) ? 2.0f : ((thrustdata.thrust_raw_data_4 < 0.0f) ? 0.0f : thrustdata.thrust_raw_data_4);
@@ -401,7 +401,7 @@ int ThrustFeedbackControl::main()
                 thrustdata.thrust_kalman_filter_data_2 = thrust_kalman_filter.thrust_kalman_filter_BFS2(dt, thrustdata.thrust_raw_data_2);
                 thrustdata.thrust_kalman_filter_data_3 = thrust_kalman_filter.thrust_kalman_filter_BFS3(dt, thrustdata.thrust_raw_data_3);
                 thrustdata.thrust_kalman_filter_data_4 = thrust_kalman_filter.thrust_kalman_filter_BFS4(dt, thrustdata.thrust_raw_data_4);
-                thrustdata.thrust_kalman_filter_data_1 = (thrustdata.thrust_kalman_filter_data_1 > 2.0f) ? 2.0f : ((thrustdata.thrust_kalman_filter_data_1 < 0.0f) ? 0.0f : thrustdata.thrust_kalman_filter_data_1);
+                // thrustdata.thrust_kalman_filter_data_1 = (thrustdata.thrust_kalman_filter_data_1 > 2.0f) ? 2.0f : ((thrustdata.thrust_kalman_filter_data_1 < 0.0f) ? 0.0f : thrustdata.thrust_kalman_filter_data_1);
                 thrustdata.thrust_kalman_filter_data_2 = (thrustdata.thrust_kalman_filter_data_2 > 2.0f) ? 2.0f : ((thrustdata.thrust_kalman_filter_data_2 < 0.0f) ? 0.0f : thrustdata.thrust_kalman_filter_data_2);
                 thrustdata.thrust_kalman_filter_data_3 = (thrustdata.thrust_kalman_filter_data_3 > 2.0f) ? 2.0f : ((thrustdata.thrust_kalman_filter_data_3 < 0.0f) ? 0.0f : thrustdata.thrust_kalman_filter_data_3);
                 thrustdata.thrust_kalman_filter_data_4 = (thrustdata.thrust_kalman_filter_data_4 > 2.0f) ? 2.0f : ((thrustdata.thrust_kalman_filter_data_4 < 0.0f) ? 0.0f : thrustdata.thrust_kalman_filter_data_4);
@@ -453,7 +453,7 @@ int ThrustFeedbackControl::main()
                 // _thrust_desired(1) = _param_tfc_pwm_to_thrust_factor2.get() * thrustdesireddata.thrust_desired2 - 0.3f;
                 // _thrust_desired(2) = _param_tfc_pwm_to_thrust_factor3.get() * thrustdesireddata.thrust_desired3 - 0.3f;
                 // _thrust_desired(3) = _param_tfc_pwm_to_thrust_factor4.get() * thrustdesireddata.thrust_desired4 - 0.3f;
-                _thrust_desired(0) = ( _thrust_desired(0) > _param_tfc_thrust_max.get()) ? _param_tfc_thrust_max.get() : ((_thrust_desired(0) < 0.0f) ? 0.0f : _thrust_desired(0));
+                // _thrust_desired(0) = ( _thrust_desired(0) > _param_tfc_thrust_max.get()) ? _param_tfc_thrust_max.get() : ((_thrust_desired(0) < 0.0f) ? 0.0f : _thrust_desired(0));
                 _thrust_desired(1) = ( _thrust_desired(1) > _param_tfc_thrust_max.get()) ? _param_tfc_thrust_max.get() : ((_thrust_desired(1) < 0.0f) ? 0.0f : _thrust_desired(1));
                 _thrust_desired(2) = ( _thrust_desired(2) > _param_tfc_thrust_max.get()) ? _param_tfc_thrust_max.get() : ((_thrust_desired(2) < 0.0f) ? 0.0f : _thrust_desired(2));
                 _thrust_desired(3) = ( _thrust_desired(3) > _param_tfc_thrust_max.get()) ? _param_tfc_thrust_max.get() : ((_thrust_desired(3) < 0.0f) ? 0.0f : _thrust_desired(3));
@@ -637,8 +637,15 @@ int ThrustFeedbackControl::main()
                 _thrustcontrol_pub.publish(thrustcontrol);
             }
         }
-        px4_usleep(1000);
-    }
+        else
+        {
+            // disarmed, reset all the variables
+            _isSensorUpdate = 0;
+            _isDesireUpdate = 0;
 
+            _iolc.motorSpeed = motorSpeed_FF;
+        }
+            px4_usleep(1000);
+        }
     return 0;
 }
