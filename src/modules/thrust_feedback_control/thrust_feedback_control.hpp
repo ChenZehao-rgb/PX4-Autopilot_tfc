@@ -76,6 +76,7 @@
 
 #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/manual_control_setpoint.h>
 #include "thrust_kalman_filter.hpp"
 #include "FilteredDerivative.hpp"
 
@@ -207,4 +208,8 @@ private:
     uORB::Subscription	_vehicle_status_sub{ORB_ID(vehicle_status)};
     vehicle_status_s    _vehicle_status{};
     bool _armed{false};
+
+    uORB::Subscription	_mcs_sub{ORB_ID(manual_control_setpoint)};
+    manual_control_setpoint_s    _mcs{};
+    float _force_from_rc{0.0f};
 };

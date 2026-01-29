@@ -354,6 +354,11 @@ int ThrustFeedbackControl::main()
             _armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
         }
 
+        if(_mcs_sub.update(&_mcs)){
+            // use throttle stick as feedforward term
+            _force_from_rc = (_mcs.throttle * _param_tfc_thrust_max.get());
+        }
+
         // float time1 = hrt_absolute_time();
         int poll_ret = px4_poll(fds, 2, 1000);
 
@@ -433,7 +438,7 @@ int ThrustFeedbackControl::main()
                 // float des2 = clean_desired(thrustdesireddata.control[1], 2);
                 // float des3 = clean_desired(thrustdesireddata.control[2], 3);
                 // float des4 = clean_desired(thrustdesireddata.control[3], 4);
-                float des1 = _param_tfc_pwm_to_thrust_factor1.get();
+                float des1 = _force_from_rc; // 直接用油门杆作为 1 号电机的期望推力
                 float des2 = clean_desired(thrustdesireddata.control[1], 2);
                 float des3 = clean_desired(thrustdesireddata.control[2], 3);
                 float des4 = clean_desired(thrustdesireddata.control[3], 4);
