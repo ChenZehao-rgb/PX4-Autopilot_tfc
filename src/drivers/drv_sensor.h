@@ -168,6 +168,7 @@
 #define DRV_BAT_DEVTYPE_SMBUS         0x7c
 #define DRV_SENS_DEVTYPE_IRLOCK       0x7d
 #define DRV_SENS_DEVTYPE_PCF8583      0x7e
+#define DRV_SENS_DEVTYPE_AS5600       0xc1
 #define DRV_TEL_DEVTYPE_BST           0x7f
 
 // Generic types for unknown CAN sensors
