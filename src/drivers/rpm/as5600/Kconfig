@@ -1,0 +1,5 @@
+menuconfig DRIVERS_RPM_AS5600
+	bool "as5600"
+	default n
+	---help---
+		Enable support for AS5600 magnetic rotary position sensor for RPM measurement
