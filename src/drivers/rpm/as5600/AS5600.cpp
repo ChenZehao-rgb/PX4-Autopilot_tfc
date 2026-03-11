@@ -46,16 +46,16 @@ int AS5600::init()
 		return PX4_ERROR;
 	}
 
-	PX4_DEBUG("addr: 0x%02x, pool: %" PRId32 ", magnet: %" PRId32,
+	PX4_DEBUG("addr: 0x%02x, poll: %" PRId32 ", magnet: %" PRId32,
 		  get_device_address(),
-		  _param_as5600_pool.get(),
+		  _param_as5600_poll.get(),
 		  _param_as5600_magnet.get());
 
 	_last_angle = -1;
 	_total_angle = 0;
 	_last_measurement_time = hrt_absolute_time();
 
-	ScheduleOnInterval(_param_as5600_pool.get());
+	ScheduleOnInterval(_param_as5600_poll.get());
 	_rpm_pub.advertise();
 
 	return PX4_OK;
@@ -114,7 +114,7 @@ void AS5600::RunImpl()
 	hrt_abstime now = hrt_absolute_time();
 	int32_t diffTime = now - _last_measurement_time;
 
-	if (diffTime < _param_as5600_pool.get() / 2) {
+	if (diffTime < _param_as5600_poll.get() / 2) {
 		return;
 	}
 
@@ -167,7 +167,7 @@ void AS5600::RunImpl()
 void AS5600::print_status()
 {
 	I2CSPIDriverBase::print_status();
-	PX4_INFO("poll interval:  %" PRId32 " us", _param_as5600_pool.get());
+	PX4_INFO("poll interval:  %" PRId32 " us", _param_as5600_poll.get());
 	PX4_INFO("last angle: %" PRId32, _last_angle);
 	PX4_INFO("total accumulated angle: %" PRId64, _total_angle);
 }

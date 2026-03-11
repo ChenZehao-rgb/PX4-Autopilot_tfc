@@ -111,7 +111,7 @@ private:
 	uORB::PublicationMulti<rpm_s> _rpm_pub{ORB_ID(rpm)};
 
 	DEFINE_PARAMETERS(
-		(ParamInt<px4::params::AS5600_POOL>) _param_as5600_pool,
+		(ParamInt<px4::params::AS5600_POLL>) _param_as5600_poll,
 		(ParamInt<px4::params::AS5600_MAGNET>) _param_as5600_magnet
 	)
 };
