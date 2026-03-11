@@ -36,6 +36,9 @@
 
 #include <uORB/topics/vehicle_local_position.h>
 #include <uORB/topics/wind.h>
+#include <uORB/topics/thrust_control.h>
+#include <uORB/topics/thrust_data.h>
+#include <uORB/topics/thrust_control_data.h>
 
 class MavlinkStreamWindCov : public MavlinkStream
 {
@@ -58,26 +61,31 @@ private:
 
 	uORB::Subscription _wind_sub{ORB_ID(wind)};
 	uORB::Subscription _local_pos_sub{ORB_ID(vehicle_local_position)};
+	uORB::Subscription _thrust_control_sub{ORB_ID(thrust_control)};
+	uORB::Subscription _thrust_data_sub{ORB_ID(thrust_data)};
+	uORB::Subscription _thrust_control_data_sub{ORB_ID(thrust_control_data)};
 
 	bool send() override
 	{
-		wind_s wind;
+		thrust_control_s thrustcontrol = {};
+		thrust_control_data_s thrustcontroldata = {};
+		thrust_data_s thrustdata = {};
 
-		if (_wind_sub.update(&wind)) {
+		if (_thrust_data_sub.update(&thrustdata)) {
 			mavlink_wind_cov_t msg{};
 
-			msg.time_usec = wind.timestamp;
+			_thrust_control_sub.copy(&thrustcontrol);
+			_thrust_control_data_sub.copy(&thrustcontroldata);
+			msg.time_usec = thrustdata.timestamp;
 
-			msg.wind_x = wind.windspeed_north;
-			msg.wind_y = wind.windspeed_east;
-			msg.wind_z = 0.0f;
+			msg.wind_x = thrustdata.thrust_raw_data_1;
+			msg.wind_y = thrustcontroldata.thrust_desired1;
+			msg.wind_z = thrustcontroldata.thrust_error1;
 
-			msg.var_horiz = wind.variance_north + wind.variance_east;
+			msg.var_horiz = thrustcontrol.control[0];
 			msg.var_vert = 0.0f;
 
-			vehicle_local_position_s lpos{};
-			_local_pos_sub.copy(&lpos);
-			msg.wind_alt = (lpos.z_valid && lpos.z_global) ? (-lpos.z + lpos.ref_alt) : (float)NAN;
+			msg.wind_alt = 0.0f;
 
 			msg.horiz_accuracy = 0.0f;
 			msg.vert_accuracy = 0.0f;
