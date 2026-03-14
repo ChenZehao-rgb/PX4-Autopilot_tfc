@@ -83,12 +83,12 @@ private:
 			msg.wind_z = thrustcontroldata.thrust_error1;
 
 			msg.var_horiz = thrustcontrol.control[0];
-			msg.var_vert = 0.0f;
+			msg.var_vert = 0.75f;
 
-			msg.wind_alt = 0.0f;
+			msg.wind_alt = 0.99f;
 
-			msg.horiz_accuracy = 0.0f;
-			msg.vert_accuracy = 0.0f;
+			msg.horiz_accuracy = 1.01f;
+			msg.vert_accuracy = 2.34f;
 
 			mavlink_msg_wind_cov_send_struct(_mavlink->get_channel(), &msg);
 
