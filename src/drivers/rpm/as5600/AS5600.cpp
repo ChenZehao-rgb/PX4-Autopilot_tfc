@@ -152,22 +152,33 @@ void AS5600::RunImpl()
 		return;
 	}
 
+	_transfer_fail_count = 0;
+
 	hrt_abstime now = hrt_absolute_time();
 	float dt = (float)(now - _last_measurement_time) / 1e6f;  // seconds
 
 	// Avoid division by zero or impossibly short intervals
 	if (dt < 1e-6f) {
+		_last_raw_angle = current_angle;
+		_last_measurement_time = now;
 		return;
 	}
 
 	// Calculate angular difference, handling wrap-around
 	int32_t diff = current_angle - _last_raw_angle;
+	const int32_t dir_mode = _param_as5600_dir.get();
 
-	if (diff > (AS5600_RESOLUTION / 2)) {
-		diff -= AS5600_RESOLUTION;  // wrapped backward
-
-	} else if (diff < -(AS5600_RESOLUTION / 2)) {
-		diff += AS5600_RESOLUTION;  // wrapped forward
+	if(dir_mode > 0) {
+		if(diff < 0)
+		{
+			diff += AS5600_RESOLUTION;  // reverse direction wrap forward
+		} // reverse direction
+	}
+	else if(dir_mode < 0) {
+		if(diff > 0)
+		{
+			diff -= AS5600_RESOLUTION;  // reverse direction wrap backward
+		} // reverse direction
 	}
 
 	// Convert angular difference to RPM
@@ -175,6 +186,11 @@ void AS5600::RunImpl()
 	// Divide by dt (seconds) = rotations per second
 	// Multiply by 60 = rotations per minute
 	float rpm_raw = ((float)diff / (float)AS5600_RESOLUTION) / dt * 60.0f;
+
+	// Suppress quantization jitter near standstill (1 LSB or less in one sample).
+	if (abs(diff) <= 1) {
+		rpm_raw = 0.0f;
+	}
 
 	// Low-pass filter
 	float alpha = _param_as5600_filter.get();
@@ -197,6 +213,8 @@ void AS5600::print_status()
 	I2CSPIDriverBase::print_status();
 	PX4_INFO("poll interval:  %" PRId32 " us", _param_as5600_pool.get());
 	PX4_INFO("filter alpha:   %.2f", (double)_param_as5600_filter.get());
+	PX4_INFO("max rpm limit:  %.1f", (double)_param_as5600_max_rpm.get());
+	PX4_INFO("dir mode:       %" PRId32, _param_as5600_dir.get());
 	PX4_INFO("last raw angle: %" PRId32, _last_raw_angle);
 	PX4_INFO("RPM (filtered): %.1f", (double)_rpm_filtered);
 	PX4_INFO("I2C failures:   %d", _transfer_fail_count);

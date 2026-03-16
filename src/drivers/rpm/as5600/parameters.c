@@ -53,10 +53,10 @@ PARAM_DEFINE_INT32(SENS_EN_AS5600, 0);
  * @reboot_required true
  * @group Sensors
  * @unit us
- * @min 10000
+ * @min 5000
  * @max 1000000
  */
-PARAM_DEFINE_INT32(AS5600_POOL, 100000);
+PARAM_DEFINE_INT32(AS5600_POOL, 5000);
 
 /**
  * AS5600 low-pass filter coefficient
@@ -72,3 +72,31 @@ PARAM_DEFINE_INT32(AS5600_POOL, 100000);
  * @max 1.0
  */
 PARAM_DEFINE_FLOAT(AS5600_FILTER, 0.3f);
+
+/**
+ * AS5600 max plausible RPM
+ *
+ * Samples with absolute raw RPM above this limit are rejected as outliers.
+ * Use this to suppress occasional wrap/aliasing glitches.
+ *
+ * @group Sensors
+ * @unit rpm
+ * @decimal 1
+ * @min 10.0
+ * @max 30000.0
+ */
+PARAM_DEFINE_FLOAT(AS5600_MAX_RPM, 5000.0f);
+
+/**
+ * AS5600 direction mode
+ *
+ * Optional direction constraint:
+ * 0 = both directions allowed,
+ * 1 = only positive RPM accepted,
+ * -1 = only negative RPM accepted.
+ *
+ * @group Sensors
+ * @min -1
+ * @max 1
+ */
+PARAM_DEFINE_INT32(AS5600_DIR, 0);

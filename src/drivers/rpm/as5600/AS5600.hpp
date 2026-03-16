@@ -126,6 +126,8 @@ private:
 
 	DEFINE_PARAMETERS(
 		(ParamInt<px4::params::AS5600_POOL>) _param_as5600_pool,
-		(ParamFloat<px4::params::AS5600_FILTER>) _param_as5600_filter
+		(ParamFloat<px4::params::AS5600_FILTER>) _param_as5600_filter,
+		(ParamFloat<px4::params::AS5600_MAX_RPM>) _param_as5600_max_rpm,
+		(ParamInt<px4::params::AS5600_DIR>) _param_as5600_dir
 	)
 };
