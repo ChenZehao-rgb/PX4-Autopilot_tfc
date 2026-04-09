@@ -356,7 +356,7 @@ int ThrustFeedbackControl::main()
 
         if(_mcs_sub.update(&_mcs)){
             // use throttle stick as feedforward term
-            _force_from_rc = (_mcs.throttle * _param_tfc_thrust_max.get());
+            _force_from_rc = ((_mcs.throttle + 1) / 2 * _param_tfc_thrust_max.get());
         }
 
         // float time1 = hrt_absolute_time();
@@ -386,7 +386,8 @@ int ThrustFeedbackControl::main()
                 /*
                     obtain the raw thrust data from the sensor
                 */
-                thrustdata.thrust_raw_data_1 = (sensordata.sensor1 * _param_sensor1_bias1.get() + _param_sensor1_bias2.get()) / 1000.0f;
+                // thrustdata.thrust_raw_data_1 = (sensordata.sensor1 * _param_sensor1_bias1.get() + _param_sensor1_bias2.get()) / 1000.0f;
+                thrustdata.thrust_raw_data_1 = -(sensordata.sensor2 / 1000.0f);
                 thrustdata.thrust_raw_data_2 = (sensordata.sensor2 + _param_sensor2_bias1.get() + _param_sensor2_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_3 = (sensordata.sensor3 + _param_sensor3_bias1.get() + _param_sensor3_bias2.get()) / 1000.0f;
                 thrustdata.thrust_raw_data_4 = (sensordata.sensor4 + _param_sensor4_bias1.get() + _param_sensor4_bias2.get()) / 1000.0f;
