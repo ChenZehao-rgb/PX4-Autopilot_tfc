@@ -36,15 +36,15 @@
  *
  * force_feedback the max_value of the force.
  *
- * @unit N
+ * @unit kg
  * @min 0.0
- * @max 20.0
+ * @max 5.0
  * @decimal 2
  * @increment 0.01
  * @reboot_required true
  * @group Thrust Feedback Control
  */
-PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 19.6133f);
+PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 4.0f);
 
 /**
  * BET freestream speed

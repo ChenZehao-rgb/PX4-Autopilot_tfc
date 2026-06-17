@@ -58,12 +58,12 @@ struct PiState {
 		last_timestamp = 0;
 	}
 };
-
+// kg to N conversion, with NaN/Inf protection
 float grams_to_newtons(float grams)
 {
 	return PX4_ISFINITE(grams) ? grams * kGramForceToNewton : 0.f;
 }
-
+// 0-1限幅
 float clean_normalized_control(float raw)
 {
 	if (!PX4_ISFINITE(raw)) {
@@ -72,7 +72,7 @@ float clean_normalized_control(float raw)
 
 	return math::constrain(raw, 0.f, 1.f);
 }
-
+// 限幅力值，防止NaN/Inf
 float clean_force_n(float force_n, float max_force_n)
 {
 	if (!PX4_ISFINITE(force_n)) {
@@ -82,12 +82,11 @@ float clean_force_n(float force_n, float max_force_n)
 	const float upper_limit = PX4_ISFINITE(max_force_n) ? fmaxf(max_force_n, 0.f) : 0.f;
 	return math::constrain(force_n, 0.f, upper_limit);
 }
-
+// 电机转速-控制量映射
 float rpm_to_control_ff(float rpm, int motor_index)
 {
-	(void)rpm;
-	(void)motor_index;
-	return 0.f;
+    // u = 0.00000003 rpm^2 + 0.00002263 rpm - 0.03261596
+	return 0.0000003f * rpm * rpm + 0.00002263f * rpm - 0.03261596f;
 }
 
 const char *bet_status_string(thrust_feedback_control::bet::BetRpmStatus status)
@@ -113,7 +112,7 @@ const char *bet_status_string(thrust_feedback_control::bet::BetRpmStatus status)
 
 	return "unknown";
 }
-
+// 每秒只打印一次警告
 void warn_bet_status_once_per_second(uint64_t now, int motor_index, thrust_feedback_control::bet::BetRpmStatus status,
 				     float desired_lift_n, float freestream_m_s, float alpha_deg)
 {
@@ -140,7 +139,7 @@ float control_dt_s(PiState &state, uint64_t now)
 	state.last_timestamp = now;
 	return dt;
 }
-
+// PI控制器更新
 float update_pi(PiState &state, float error_n, float kp, float ki, float lim_i, float dt_s)
 {
 	if (!PX4_ISFINITE(error_n) || !PX4_ISFINITE(kp) || !PX4_ISFINITE(ki) || !PX4_ISFINITE(lim_i)) {
@@ -227,7 +226,7 @@ int ThrustFeedbackControl::main()
 
 		if (_mcs_sub.update(&_mcs)) {
 			const float normalized_throttle = clean_normalized_control((_mcs.throttle + 1.f) * 0.5f);
-			_force_from_rc = clean_force_n(normalized_throttle * _param_tfc_thrust_max.get(), _param_tfc_thrust_max.get());
+			_force_from_rc = clean_force_n(grams_to_newtons(normalized_throttle * _param_tfc_thrust_max.get()), grams_to_newtons(_param_tfc_thrust_max.get()));
 		}
 
 		const int poll_ret = px4_poll(fds, 2, 1000);
@@ -258,7 +257,7 @@ int ThrustFeedbackControl::main()
 				thrustdata.thrust_raw_data_4 = grams_to_newtons(static_cast<float>(sensordata.sensor4)
 							       + _param_sensor4_bias1.get() + _param_sensor4_bias2.get());
 
-				const float max_force_n = _param_tfc_thrust_max.get();
+				const float max_force_n = grams_to_newtons(_param_tfc_thrust_max.get());
 				thrustdata.thrust_raw_data_1 = clean_force_n(thrustdata.thrust_raw_data_1, max_force_n);
 				thrustdata.thrust_raw_data_2 = clean_force_n(thrustdata.thrust_raw_data_2, max_force_n);
 				thrustdata.thrust_raw_data_3 = clean_force_n(thrustdata.thrust_raw_data_3, max_force_n);
@@ -285,7 +284,7 @@ int ThrustFeedbackControl::main()
 				orb_copy(ORB_ID(actuator_motors), thrustdesireddata_sub_fd, &thrustdesireddata);
 
 				const uint64_t now = hrt_absolute_time();
-				const float max_force_n = fmaxf(_param_tfc_thrust_max.get(), 0.f);
+				const float max_force_n = fmaxf(grams_to_newtons(_param_tfc_thrust_max.get()), 0.f);
 				thrustdesireddata.timestamp = now;
 
 				thrustcontrol.timestamp = now;
@@ -341,8 +340,8 @@ int ThrustFeedbackControl::main()
 			float feedback_out[kMotorCount] = {};
 
 			for (int i = 0; i < kMotorCount; ++i) {
-				_thrust_desired(i) = clean_force_n(_thrust_desired(i), _param_tfc_thrust_max.get());
-				_thrust_measure(i) = clean_force_n(_thrust_measure(i), _param_tfc_thrust_max.get());
+				_thrust_desired(i) = clean_force_n(_thrust_desired(i), grams_to_newtons(_param_tfc_thrust_max.get()));
+				_thrust_measure(i) = clean_force_n(_thrust_measure(i), grams_to_newtons(_param_tfc_thrust_max.get()));
 				_thrust_desired_dot(i) = 0.f;
 
 				if (_thrust_desired(i) <= 1e-5f) {
