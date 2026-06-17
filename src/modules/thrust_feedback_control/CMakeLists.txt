@@ -31,13 +31,26 @@
 #
 ############################################################################
 
+px4_add_library(thrust_feedback_bet
+        bet_aero_data.cpp
+        bet_aero_data.hpp
+        bet_inverse_solver.cpp
+        bet_inverse_solver.hpp
+        bet_lift_lookup.cpp
+        bet_lift_lookup.hpp
+)
+target_include_directories(thrust_feedback_bet PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
 px4_add_module(
     MODULE modules__thrust_feedback_control
     MAIN thrust_feedback_control
     COMPILE_FLAGS
     SRCS
-        thrust_feedback_control_test.cpp
+        thrust_feedback_control_bemt.cpp
         thrust_feedback_control_start.cpp
         thrust_kalman_filter.cpp
     DEPENDS
+        thrust_feedback_bet
     )
+
+px4_add_unit_gtest(SRC bet_inverse_solver_test.cpp LINKLIBS thrust_feedback_bet)

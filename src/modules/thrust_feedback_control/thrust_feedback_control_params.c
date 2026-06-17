@@ -36,7 +36,7 @@
  *
  * force_feedback the max_value of the force.
  *
- * @unit kg
+ * @unit N
  * @min 0.0
  * @max 20.0
  * @decimal 2
@@ -44,7 +44,35 @@
  * @reboot_required true
  * @group Thrust Feedback Control
  */
-PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 2.0f);
+PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 19.6133f);
+
+/**
+ * BET freestream speed
+ *
+ * Disk-center freestream speed used by BET inverse solver integrations.
+ *
+ * @unit m/s
+ * @min 0.0
+ * @max 10.17
+ * @decimal 3
+ * @increment 0.001
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_BET_V_MS, 0.0f);
+
+/**
+ * BET disk angle of attack
+ *
+ * Rotor disk angle of attack used by BET inverse solver integrations.
+ *
+ * @unit deg
+ * @min 0.0
+ * @max 90.0
+ * @decimal 2
+ * @increment 0.01
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_BET_A_DEG, 0.0f);
 
  /**
  * PWM to thrust conversion factor
