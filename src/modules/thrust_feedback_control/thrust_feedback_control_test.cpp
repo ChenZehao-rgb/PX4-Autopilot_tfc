@@ -558,68 +558,45 @@ int ThrustFeedbackControl::main()
                 _iolc4.thrust_desired_dot = _thrust_desired_dot(3);
                 IOLC_Calculate4(&_iolc4);
 
-                thrustcontroldata.motor_speed_dot1 = _iolc.motorSpeed_dot;
-                thrustcontroldata.motor_speed_dot2 = _iolc2.motorSpeed_dot;
-                thrustcontroldata.motor_speed_dot3 = _iolc3.motorSpeed_dot;
-                thrustcontroldata.motor_speed_dot4 = _iolc4.motorSpeed_dot;
-                thrustcontroldata.motor_speed1 = _iolc.motorSpeed;
-                thrustcontroldata.motor_speed2 = _iolc2.motorSpeed;
-                thrustcontroldata.motor_speed3 = _iolc3.motorSpeed;
-                thrustcontroldata.motor_speed4 = _iolc4.motorSpeed;
-                thrustcontroldata.f_x1 = _iolc.f_x;
-                thrustcontroldata.f_x2 = _iolc2.f_x;
-                thrustcontroldata.f_x3 = _iolc3.f_x;
-                thrustcontroldata.f_x4 = _iolc4.f_x;
-                thrustcontroldata.g_x1 = _iolc.g_x;
-                thrustcontroldata.g_x2 = _iolc2.g_x;
-                thrustcontroldata.g_x3 = _iolc3.g_x;
-                thrustcontroldata.g_x4 = _iolc4.g_x;
-                thrustcontroldata.deta_t_1 = _iolc.dt;
-                thrustcontroldata.deta_t_2 = _iolc2.dt;
-                thrustcontroldata.deta_t_3 = _iolc3.dt;
-                thrustcontroldata.deta_t_4 = _iolc4.dt;
-                thrustcontroldata.thrust_error1 = _iolc.err;
-                thrustcontroldata.thrust_error2 = _iolc2.err;
-                thrustcontroldata.thrust_error3 = _iolc3.err;
-                thrustcontroldata.thrust_error4 = _iolc4.err;
-                thrustcontroldata.thrust_desired1 = _thrust_desired(0);
-                thrustcontroldata.thrust_desired2 = _thrust_desired(1);
-                thrustcontroldata.thrust_desired3 = _thrust_desired(2);
-                thrustcontroldata.thrust_desired4 = _thrust_desired(3);
-                thrustcontroldata.thrust_desired_dot1 = _thrust_desired_dot(0);
-                thrustcontroldata.thrust_desired_dot2 = _thrust_desired_dot(1);
-                thrustcontroldata.thrust_desired_dot3 = _thrust_desired_dot(2);
-                thrustcontroldata.thrust_desired_dot4 = _thrust_desired_dot(3);
-
-                thrustcontroldata.thrust_feedback_out1 = _u_fb_coeff(0) * static_cast<float>(_iolc.u_fb);
-                thrustcontroldata.thrust_feedback_out2 = _u_fb_coeff(1) * static_cast<float>(_iolc2.u_fb);
-                thrustcontroldata.thrust_feedback_out3 = _u_fb_coeff(2) * static_cast<float>(_iolc3.u_fb);
-                thrustcontroldata.thrust_feedback_out4 = _u_fb_coeff(3) * static_cast<float>(_iolc4.u_fb);
                 _total_output(0) = _iolc.u;
                 _total_output(1) = _iolc2.u;
                 _total_output(2) = _iolc3.u;
                 _total_output(3) = _iolc4.u;
 
-                thrustcontroldata.thrust_feedforward_out1 = _iolc_u_ff(0);
-                thrustcontroldata.thrust_feedforward_out2 = _iolc_u_ff(1);
-                thrustcontroldata.thrust_feedforward_out3 = _iolc_u_ff(2);
-                thrustcontroldata.thrust_feedforward_out4 = _iolc_u_ff(3);
-                thrustcontroldata.thrust_control_out1 = _total_output(0);
-                thrustcontroldata.thrust_control_out2 = _total_output(1);
-                thrustcontroldata.thrust_control_out3 = _total_output(2);
-                thrustcontroldata.thrust_control_out4 = _total_output(3);
-                thrustcontroldata.thrust_control_out_pwm1 = math::constrain((2.f * _total_output(0) - 1.f), -1.f, 1.f);
-                thrustcontroldata.thrust_control_out_pwm2 = math::constrain((2.f * _total_output(1) - 1.f), -1.f, 1.f);
-                thrustcontroldata.thrust_control_out_pwm3 = math::constrain((2.f * _total_output(2) - 1.f), -1.f, 1.f);
-                thrustcontroldata.thrust_control_out_pwm4 = math::constrain((2.f * _total_output(3) - 1.f), -1.f, 1.f);
-                // _thrust_kalman_filter_control_out(0) = thrust_kalman_filter.thrust_kalman_filter_u1(thrustcontroldata.thrust_control_out_pwm1, thrustdesireddata.open_loop_control_output1);
-                // _thrust_kalman_filter_control_out(1) = thrust_kalman_filter.thrust_kalman_filter_u2(thrustcontroldata.thrust_control_out_pwm2, thrustdesireddata.open_loop_control_output2);
-                // _thrust_kalman_filter_control_out(2) = thrust_kalman_filter.thrust_kalman_filter_u3(thrustcontroldata.thrust_control_out_pwm3, thrustdesireddata.open_loop_control_output3);
-                // _thrust_kalman_filter_control_out(3) = thrust_kalman_filter.thrust_kalman_filter_u4(thrustcontroldata.thrust_control_out_pwm4, thrustdesireddata.open_loop_control_output4);
-                // thrustcontroldata.thrust_kalman_filter_control_out_pwm1 = math::constrain(_thrust_kalman_filter_control_out(0), -1.f, 1.f);
-                // thrustcontroldata.thrust_kalman_filter_control_out_pwm2 = math::constrain(_thrust_kalman_filter_control_out(1), -1.f, 1.f);
-                // thrustcontroldata.thrust_kalman_filter_control_out_pwm3 = math::constrain(_thrust_kalman_filter_control_out(2), -1.f, 1.f);
-                // thrustcontroldata.thrust_kalman_filter_control_out_pwm4 = math::constrain(_thrust_kalman_filter_control_out(3), -1.f, 1.f);
+                const float motor_speed[4] = {
+                    static_cast<float>(_iolc.motorSpeed),
+                    static_cast<float>(_iolc2.motorSpeed),
+                    static_cast<float>(_iolc3.motorSpeed),
+                    static_cast<float>(_iolc4.motorSpeed),
+                };
+                const float deta_t[4] = {
+                    static_cast<float>(_iolc.dt),
+                    static_cast<float>(_iolc2.dt),
+                    static_cast<float>(_iolc3.dt),
+                    static_cast<float>(_iolc4.dt),
+                };
+                const float thrust_error[4] = {_iolc.err, _iolc2.err, _iolc3.err, _iolc4.err};
+                const float thrust_feedback_out[4] = {
+                    _u_fb_coeff(0) * static_cast<float>(_iolc.u_fb),
+                    _u_fb_coeff(1) * static_cast<float>(_iolc2.u_fb),
+                    _u_fb_coeff(2) * static_cast<float>(_iolc3.u_fb),
+                    _u_fb_coeff(3) * static_cast<float>(_iolc4.u_fb),
+                };
+
+                for (int i = 0; i < 4; ++i) {
+                    thrustcontroldata.bet_achieved_lift_n[i] = 0.f;
+                    thrustcontroldata.motor_speed[i] = motor_speed[i];
+                    thrustcontroldata.bet_status[i] = 0;
+                    thrustcontroldata.bet_iterations[i] = 0;
+                    thrustcontroldata.deta_t[i] = deta_t[i];
+                    thrustcontroldata.thrust_error[i] = thrust_error[i];
+                    thrustcontroldata.thrust_desired[i] = _thrust_desired(i);
+                    thrustcontroldata.thrust_desired_dot[i] = _thrust_desired_dot(i);
+                    thrustcontroldata.thrust_feedback_out[i] = thrust_feedback_out[i];
+                    thrustcontroldata.thrust_feedforward_out[i] = _iolc_u_ff(i);
+                    thrustcontroldata.thrust_control_out[i] = _total_output(i);
+                    thrustcontroldata.thrust_control_out_pwm[i] = math::constrain((2.f * _total_output(i) - 1.f), -1.f, 1.f);
+                }
 
                 thrustcontroldata.thrust_start = _param_tfc_start.get();
 
@@ -628,10 +605,9 @@ int ThrustFeedbackControl::main()
 
                 if((thrustcontroldata.thrust_start > 0.5f)&&(thrustcontroldata.thrust_start < 1.5f))
                 {
-                    thrustcontrol.control[0] = thrustcontroldata.thrust_control_out1;
-                    thrustcontrol.control[1] = thrustcontroldata.thrust_control_out2;
-                    thrustcontrol.control[2] = thrustcontroldata.thrust_control_out3;
-                    thrustcontrol.control[3] = thrustcontroldata.thrust_control_out4;
+                    for (int i = 0; i < 4; ++i) {
+                        thrustcontrol.control[i] = thrustcontroldata.thrust_control_out[i];
+                    }
                 }
 
                 thrustcontrol.timestamp = hrt_absolute_time();

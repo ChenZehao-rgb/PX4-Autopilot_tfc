@@ -82,8 +82,8 @@ private:
 			msg.time_usec = thrustdata.timestamp;
 
 			msg.wind_x = thrustdata.thrust_raw_data_1;
-			msg.wind_y = thrustcontroldata.thrust_desired1;
-			msg.wind_z = thrustcontroldata.thrust_error1;
+			msg.wind_y = thrustcontroldata.thrust_desired[0];
+			msg.wind_z = thrustcontroldata.thrust_error[0];
 
 			msg.var_horiz = thrustcontrol.control[0];
 			msg.var_vert = rpm.rpm_raw;

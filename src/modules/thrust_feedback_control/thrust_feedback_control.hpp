@@ -76,6 +76,7 @@
 
 #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_status.h>
+#include <uORB/topics/vehicle_angular_velocity.h>
 #include <uORB/topics/manual_control_setpoint.h>
 #include "thrust_kalman_filter.hpp"
 #include "FilteredDerivative.hpp"
@@ -100,7 +101,7 @@ private:
 
     DEFINE_PARAMETERS(
         (ParamFloat<px4::params::TFC_THRUST_MAX>) _param_tfc_thrust_max,
-        (ParamFloat<px4::params::TFC_BET_V_MS>) _param_tfc_bet_v_ms,
+        (ParamFloat<px4::params::TFC_BET_LEN_M>) _param_tfc_bet_len_m,
         (ParamFloat<px4::params::TFC_BET_A_DEG>) _param_tfc_bet_a_deg,
         (ParamFloat<px4::params::TFC_IOLC_K>) _param_tfc_iolc_k,
         (ParamFloat<px4::params::TFC_IOLC_KI>) _param_tfc_iolc_ki,
@@ -210,6 +211,9 @@ private:
     uORB::Subscription	_vehicle_status_sub{ORB_ID(vehicle_status)};
     vehicle_status_s    _vehicle_status{};
     bool _armed{false};
+
+    uORB::Subscription	_vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
+    vehicle_angular_velocity_s    _vehicle_angular_velocity{};
 
     uORB::Subscription	_mcs_sub{ORB_ID(manual_control_setpoint)};
     manual_control_setpoint_s    _mcs{};

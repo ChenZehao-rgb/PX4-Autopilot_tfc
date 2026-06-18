@@ -47,18 +47,18 @@
 PARAM_DEFINE_FLOAT(TFC_THRUST_MAX, 4.0f);
 
 /**
- * BET freestream speed
+ * BET yaw-rate length
  *
- * Disk-center freestream speed used by BET inverse solver integrations.
+ * Length used to convert vehicle z-axis angular velocity to BET freestream speed.
  *
- * @unit m/s
- * @min 0.0
- * @max 10.17
- * @decimal 3
- * @increment 0.001
+ * @unit m
+ * @min 0.5
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.01
  * @group Thrust Feedback Control
  */
-PARAM_DEFINE_FLOAT(TFC_BET_V_MS, 0.0f);
+PARAM_DEFINE_FLOAT(TFC_BET_LEN_M, 1.5f);
 
 /**
  * BET disk angle of attack

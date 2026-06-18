@@ -46,6 +46,9 @@ constexpr float kGramForceToNewton = 9.80665e-3f;
 constexpr float kDefaultControlDt = 0.01f;
 constexpr float kMinControlDt = 0.001f;
 constexpr float kMaxControlDt = 0.05f;
+constexpr float kBetLengthDefaultM = 1.5f;
+constexpr float kBetLengthMinM = 0.5f;
+constexpr float kBetLengthMaxM = 2.0f;
 constexpr uint64_t kBetWarnIntervalUs = 1000000;
 
 struct PiState {
@@ -81,6 +84,21 @@ float clean_force_n(float force_n, float max_force_n)
 
 	const float upper_limit = PX4_ISFINITE(max_force_n) ? fmaxf(max_force_n, 0.f) : 0.f;
 	return math::constrain(force_n, 0.f, upper_limit);
+}
+
+float clean_bet_length_m(float length_m)
+{
+	return math::constrain(PX4_ISFINITE(length_m) ? length_m : kBetLengthDefaultM,
+			       kBetLengthMinM, kBetLengthMaxM);
+}
+
+float clean_yaw_rate_rad_s(float yaw_rate_rad_s)
+{
+	if (!PX4_ISFINITE(yaw_rate_rad_s)) {
+		return 0.f;
+	}
+
+	return yaw_rate_rad_s;
 }
 // 电机转速-控制量映射
 float rpm_to_control_ff(float rpm, int motor_index)
@@ -299,6 +317,8 @@ int ThrustFeedbackControl::main()
 			}
 		}
 
+		_vehicle_angular_velocity_sub.update(&_vehicle_angular_velocity);
+
 		if (!_armed) {
 			sensor_updated = false;
 			desired_updated = false;
@@ -328,13 +348,18 @@ int ThrustFeedbackControl::main()
 			}
 
 			const uint64_t now = hrt_absolute_time();
-			const float bet_freestream_m_s = _param_tfc_bet_v_ms.get();
+			const float bet_yaw_rate_rad_s = clean_yaw_rate_rad_s(_vehicle_angular_velocity.xyz[2]);
+			const float bet_length_m = clean_bet_length_m(_param_tfc_bet_len_m.get());
+			const float bet_freestream_m_s = fabsf(bet_yaw_rate_rad_s) * bet_length_m;
 			const float bet_alpha_deg = _param_tfc_bet_a_deg.get();
 			const float kp = _param_tfc_pid_kp.get();
 			const float ki = _param_tfc_pid_ki.get();
 			const float lim_i = _param_tfc_pid_lim_i.get();
 
 			float rpm_ff[kMotorCount] = {};
+			float bet_achieved_lift_n[kMotorCount] = {};
+			int bet_status[kMotorCount] = {};
+			int bet_iterations[kMotorCount] = {};
 			float dt_s[kMotorCount] = {};
 			float thrust_error[kMotorCount] = {};
 			float feedback_out[kMotorCount] = {};
@@ -355,6 +380,9 @@ int ThrustFeedbackControl::main()
 
 				const thrust_feedback_control::bet::BetRpmSolution bet_solution =
 					thrust_feedback_control::bet::lookup_rpm_for_lift_n(_thrust_desired(i), bet_freestream_m_s, bet_alpha_deg);
+				bet_achieved_lift_n[i] = bet_solution.achieved_lift_n;
+				bet_status[i] = static_cast<int>(bet_solution.status);
+				bet_iterations[i] = bet_solution.iterations;
 
 				if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::Ok) {
 					rpm_ff[i] = bet_solution.rpm;
@@ -378,54 +406,26 @@ int ThrustFeedbackControl::main()
 				_total_output(i) = math::constrain(_iolc_u_ff(i) + feedback_out[i], 0.f, 1.f);
 			}
 
-			thrustcontroldata.motor_speed_dot1 = 0.f;
-			thrustcontroldata.motor_speed_dot2 = 0.f;
-			thrustcontroldata.motor_speed_dot3 = 0.f;
-			thrustcontroldata.motor_speed_dot4 = 0.f;
-			thrustcontroldata.motor_speed1 = rpm_ff[0];
-			thrustcontroldata.motor_speed2 = rpm_ff[1];
-			thrustcontroldata.motor_speed3 = rpm_ff[2];
-			thrustcontroldata.motor_speed4 = rpm_ff[3];
-			thrustcontroldata.f_x1 = 0.f;
-			thrustcontroldata.f_x2 = 0.f;
-			thrustcontroldata.f_x3 = 0.f;
-			thrustcontroldata.f_x4 = 0.f;
-			thrustcontroldata.g_x1 = 0.f;
-			thrustcontroldata.g_x2 = 0.f;
-			thrustcontroldata.g_x3 = 0.f;
-			thrustcontroldata.g_x4 = 0.f;
-			thrustcontroldata.deta_t_1 = dt_s[0];
-			thrustcontroldata.deta_t_2 = dt_s[1];
-			thrustcontroldata.deta_t_3 = dt_s[2];
-			thrustcontroldata.deta_t_4 = dt_s[3];
-			thrustcontroldata.thrust_error1 = thrust_error[0];
-			thrustcontroldata.thrust_error2 = thrust_error[1];
-			thrustcontroldata.thrust_error3 = thrust_error[2];
-			thrustcontroldata.thrust_error4 = thrust_error[3];
-			thrustcontroldata.thrust_desired1 = _thrust_desired(0);
-			thrustcontroldata.thrust_desired2 = _thrust_desired(1);
-			thrustcontroldata.thrust_desired3 = _thrust_desired(2);
-			thrustcontroldata.thrust_desired4 = _thrust_desired(3);
-			thrustcontroldata.thrust_desired_dot1 = 0.f;
-			thrustcontroldata.thrust_desired_dot2 = 0.f;
-			thrustcontroldata.thrust_desired_dot3 = 0.f;
-			thrustcontroldata.thrust_desired_dot4 = 0.f;
-			thrustcontroldata.thrust_feedback_out1 = feedback_out[0];
-			thrustcontroldata.thrust_feedback_out2 = feedback_out[1];
-			thrustcontroldata.thrust_feedback_out3 = feedback_out[2];
-			thrustcontroldata.thrust_feedback_out4 = feedback_out[3];
-			thrustcontroldata.thrust_feedforward_out1 = _iolc_u_ff(0);
-			thrustcontroldata.thrust_feedforward_out2 = _iolc_u_ff(1);
-			thrustcontroldata.thrust_feedforward_out3 = _iolc_u_ff(2);
-			thrustcontroldata.thrust_feedforward_out4 = _iolc_u_ff(3);
-			thrustcontroldata.thrust_control_out1 = _total_output(0);
-			thrustcontroldata.thrust_control_out2 = _total_output(1);
-			thrustcontroldata.thrust_control_out3 = _total_output(2);
-			thrustcontroldata.thrust_control_out4 = _total_output(3);
-			thrustcontroldata.thrust_control_out_pwm1 = math::constrain((2.f * _total_output(0) - 1.f), -1.f, 1.f);
-			thrustcontroldata.thrust_control_out_pwm2 = math::constrain((2.f * _total_output(1) - 1.f), -1.f, 1.f);
-			thrustcontroldata.thrust_control_out_pwm3 = math::constrain((2.f * _total_output(2) - 1.f), -1.f, 1.f);
-			thrustcontroldata.thrust_control_out_pwm4 = math::constrain((2.f * _total_output(3) - 1.f), -1.f, 1.f);
+			thrustcontroldata.bet_freestream_m_s = bet_freestream_m_s;
+			thrustcontroldata.bet_alpha_deg = bet_alpha_deg;
+			thrustcontroldata.bet_yaw_rate_rad_s = bet_yaw_rate_rad_s;
+			thrustcontroldata.bet_length_m = bet_length_m;
+
+			for (int i = 0; i < kMotorCount; ++i) {
+				thrustcontroldata.bet_achieved_lift_n[i] = bet_achieved_lift_n[i];
+				thrustcontroldata.motor_speed[i] = rpm_ff[i];
+				thrustcontroldata.bet_status[i] = bet_status[i];
+				thrustcontroldata.bet_iterations[i] = bet_iterations[i];
+				thrustcontroldata.deta_t[i] = dt_s[i];
+				thrustcontroldata.thrust_error[i] = thrust_error[i];
+				thrustcontroldata.thrust_desired[i] = _thrust_desired(i);
+				thrustcontroldata.thrust_desired_dot[i] = _thrust_desired_dot(i);
+				thrustcontroldata.thrust_feedback_out[i] = feedback_out[i];
+				thrustcontroldata.thrust_feedforward_out[i] = _iolc_u_ff(i);
+				thrustcontroldata.thrust_control_out[i] = _total_output(i);
+				thrustcontroldata.thrust_control_out_pwm[i] = math::constrain((2.f * _total_output(i) - 1.f), -1.f, 1.f);
+			}
+
 			thrustcontroldata.kp = kp;
 			thrustcontroldata.ki = ki;
 			thrustcontroldata.kd = _param_tfc_pid_kd.get();
@@ -435,10 +435,9 @@ int ThrustFeedbackControl::main()
 			_thrustcontroldata_pub.publish(thrustcontroldata);
 
 			if (thrustcontroldata.thrust_start > 0.5f && thrustcontroldata.thrust_start < 1.5f) {
-				thrustcontrol.control[0] = thrustcontroldata.thrust_control_out1;
-				thrustcontrol.control[1] = thrustcontroldata.thrust_control_out2;
-				thrustcontrol.control[2] = thrustcontroldata.thrust_control_out3;
-				thrustcontrol.control[3] = thrustcontroldata.thrust_control_out4;
+				for (int i = 0; i < kMotorCount; ++i) {
+					thrustcontrol.control[i] = thrustcontroldata.thrust_control_out[i];
+				}
 			}
 
 			thrustcontrol.timestamp = hrt_absolute_time();
