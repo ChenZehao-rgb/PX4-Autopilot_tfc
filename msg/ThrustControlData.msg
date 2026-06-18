@@ -27,5 +27,6 @@ float32 bet_length_m
 float32[4] bet_achieved_lift_n
 int32[4] bet_status
 int32[4] bet_iterations
+uint32[4] bet_lookup_time_us
 
 # TOPICS thrust_control_data

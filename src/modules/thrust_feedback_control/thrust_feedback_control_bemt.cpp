@@ -41,7 +41,7 @@ px4::AppState ThrustFeedbackControl::appState;
 namespace
 {
 
-constexpr int kMotorCount = 4;
+constexpr int kMotorCount = 1;
 constexpr float kGramForceToNewton = 9.80665e-3f;
 constexpr float kDefaultControlDt = 0.01f;
 constexpr float kMinControlDt = 0.001f;
@@ -233,7 +233,6 @@ int ThrustFeedbackControl::main()
 	reset_vector4(_control_output);
 	reset_vector4(_total_output);
 	reset_vector4(_iolc_u_ff);
-	reset_vector4(_thrust_desired_dot);
 
 	while (appState.isRunning()) {
 		parameters_update();
@@ -363,11 +362,11 @@ int ThrustFeedbackControl::main()
 			float dt_s[kMotorCount] = {};
 			float thrust_error[kMotorCount] = {};
 			float feedback_out[kMotorCount] = {};
+			uint32_t bet_lookup_time_us[kMotorCount] = {};
 
 			for (int i = 0; i < kMotorCount; ++i) {
 				_thrust_desired(i) = clean_force_n(_thrust_desired(i), grams_to_newtons(_param_tfc_thrust_max.get()));
 				_thrust_measure(i) = clean_force_n(_thrust_measure(i), grams_to_newtons(_param_tfc_thrust_max.get()));
-				_thrust_desired_dot(i) = 0.f;
 
 				if (_thrust_desired(i) <= 1e-5f) {
 					pi_states[i].reset();
@@ -377,9 +376,12 @@ int ThrustFeedbackControl::main()
 					thrust_error[i] = -_thrust_measure(i);
 					continue;
 				}
-
+				// 记录查表耗时
+				const uint64_t lookup_start_us = hrt_absolute_time();
 				const thrust_feedback_control::bet::BetRpmSolution bet_solution =
 					thrust_feedback_control::bet::lookup_rpm_for_lift_n(_thrust_desired(i), bet_freestream_m_s, bet_alpha_deg);
+				const uint64_t lookup_time_us = hrt_absolute_time() - lookup_start_us;
+				bet_lookup_time_us[i] = static_cast<uint32_t>(lookup_time_us);
 				bet_achieved_lift_n[i] = bet_solution.achieved_lift_n;
 				bet_status[i] = static_cast<int>(bet_solution.status);
 				bet_iterations[i] = bet_solution.iterations;
@@ -419,11 +421,10 @@ int ThrustFeedbackControl::main()
 				thrustcontroldata.deta_t[i] = dt_s[i];
 				thrustcontroldata.thrust_error[i] = thrust_error[i];
 				thrustcontroldata.thrust_desired[i] = _thrust_desired(i);
-				thrustcontroldata.thrust_desired_dot[i] = _thrust_desired_dot(i);
 				thrustcontroldata.thrust_feedback_out[i] = feedback_out[i];
 				thrustcontroldata.thrust_feedforward_out[i] = _iolc_u_ff(i);
 				thrustcontroldata.thrust_control_out[i] = _total_output(i);
-				thrustcontroldata.thrust_control_out_pwm[i] = math::constrain((2.f * _total_output(i) - 1.f), -1.f, 1.f);
+				thrustcontroldata.bet_lookup_time_us[i] = bet_lookup_time_us[i];
 			}
 
 			thrustcontroldata.kp = kp;
