@@ -161,6 +161,12 @@ TEST(BetInverseSolver, TableLookup)
 
 TEST(BetInverseSolver, TableLookupRangeAndLimitStatus)
 {
-	EXPECT_EQ(lookup_rpm_for_lift_n(1.f, 11.f, 0.f).status, BetRpmStatus::OutOfTableRange);
+	const BetRpmSolution boundary = lookup_rpm_for_lift_n(12.485f, 10.17f, 0.f);
+	const BetRpmSolution clamped = lookup_rpm_for_lift_n(12.485f, 10.177f, 0.f);
+
+	ASSERT_EQ(boundary.status, BetRpmStatus::Ok);
+	EXPECT_EQ(clamped.status, BetRpmStatus::OutOfTableRange);
+	EXPECT_NEAR(clamped.rpm, boundary.rpm, 1e-3f);
+	EXPECT_NEAR(clamped.achieved_lift_n, boundary.achieved_lift_n, 1e-3f);
 	EXPECT_EQ(lookup_rpm_for_lift_n(1000.f, 0.f, 0.f).status, BetRpmStatus::AboveRpmLimit);
 }

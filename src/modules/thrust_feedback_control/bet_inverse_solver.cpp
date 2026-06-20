@@ -331,10 +331,12 @@ BetRpmSolution lookup_rpm_for_lift_n(float lift_n, float freestream_m_s, float a
 		return solution;
 	}
 
-	if (!table_input_in_range(freestream_m_s, alpha_deg)) {
-		solution.status = BetRpmStatus::OutOfTableRange;
-		return solution;
-	}
+	const bool input_clamped = !table_input_in_range(freestream_m_s, alpha_deg);
+	freestream_m_s = fminf(fmaxf(freestream_m_s, kBetLiftFreestreamGrid[0]),
+				kBetLiftFreestreamGrid[kNumBetLiftFreestream - 1]);
+	alpha_deg = fminf(fmaxf(alpha_deg, kBetLiftAlphaGridDeg[0]),
+			  kBetLiftAlphaGridDeg[kNumBetLiftAlpha - 1]);
+	const BetRpmStatus lookup_status = input_clamped ? BetRpmStatus::OutOfTableRange : BetRpmStatus::Ok;
 
 	float alpha_weight = 0.f;
 	float freestream_weight = 0.f;
@@ -347,7 +349,7 @@ BetRpmSolution lookup_rpm_for_lift_n(float lift_n, float freestream_m_s, float a
 	if (lift_n <= previous_lift) {
 		solution.rpm = kBetLiftRpmGrid[0];
 		solution.achieved_lift_n = previous_lift;
-		solution.status = BetRpmStatus::Ok;
+		solution.status = lookup_status;
 		return solution;
 	}
 
@@ -370,7 +372,7 @@ BetRpmSolution lookup_rpm_for_lift_n(float lift_n, float freestream_m_s, float a
 			solution.rpm = rpm_low + weight * (rpm_high - rpm_low);
 			solution.achieved_lift_n = lift_n;
 			solution.iterations = static_cast<int>(rpm_index);
-			solution.status = BetRpmStatus::Ok;
+			solution.status = lookup_status;
 			return solution;
 		}
 

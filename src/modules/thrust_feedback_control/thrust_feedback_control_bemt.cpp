@@ -389,6 +389,11 @@ int ThrustFeedbackControl::main()
 				if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::Ok) {
 					rpm_ff[i] = bet_solution.rpm;
 
+				} else if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::OutOfTableRange) {
+					rpm_ff[i] = bet_solution.rpm;
+					warn_bet_status_once_per_second(now, i, bet_solution.status, _thrust_desired(i),
+									bet_freestream_m_s, bet_alpha_deg);
+
 				} else if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::AboveRpmLimit) {
 					rpm_ff[i] = thrust_feedback_control::bet::kBetMaxRpm;
 					warn_bet_status_once_per_second(now, i, bet_solution.status, _thrust_desired(i),
