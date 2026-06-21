@@ -104,7 +104,7 @@ float clean_yaw_rate_rad_s(float yaw_rate_rad_s)
 float rpm_to_control_ff(float rpm, int motor_index)
 {
     // u = 0.00000003 rpm^2 + 0.00002263 rpm - 0.03261596
-	return 0.0000003f * rpm * rpm + 0.00002263f * rpm - 0.03261596f;
+	return 0.00000003f * rpm * rpm + 0.00002263f * rpm - 0.03261596f;
 }
 
 const char *bet_status_string(thrust_feedback_control::bet::BetRpmStatus status)
@@ -227,7 +227,7 @@ int ThrustFeedbackControl::main()
 	PiState pi_states[kMotorCount]{};
 	bool sensor_updated = false;
 	bool desired_updated = false;
-
+	float max_thrust_grams = 1000 * _param_tfc_thrust_max.get();
 	reset_vector4(_thrust_desired);
 	reset_vector4(_thrust_measure);
 	reset_vector4(_control_output);
@@ -243,7 +243,7 @@ int ThrustFeedbackControl::main()
 
 		if (_mcs_sub.update(&_mcs)) {
 			const float normalized_throttle = clean_normalized_control((_mcs.throttle + 1.f) * 0.5f);
-			_force_from_rc = clean_force_n(grams_to_newtons(normalized_throttle * _param_tfc_thrust_max.get()), grams_to_newtons(_param_tfc_thrust_max.get()));
+			_force_from_rc = clean_force_n(grams_to_newtons(normalized_throttle * max_thrust_grams), grams_to_newtons(max_thrust_grams));
 		}
 
 		const int poll_ret = px4_poll(fds, 2, 1000);
@@ -274,7 +274,7 @@ int ThrustFeedbackControl::main()
 				thrustdata.thrust_raw_data_4 = grams_to_newtons(static_cast<float>(sensordata.sensor4)
 							       + _param_sensor4_bias1.get() + _param_sensor4_bias2.get());
 
-				const float max_force_n = grams_to_newtons(_param_tfc_thrust_max.get());
+				const float max_force_n = grams_to_newtons(max_thrust_grams);
 				thrustdata.thrust_raw_data_1 = clean_force_n(thrustdata.thrust_raw_data_1, max_force_n);
 				thrustdata.thrust_raw_data_2 = clean_force_n(thrustdata.thrust_raw_data_2, max_force_n);
 				thrustdata.thrust_raw_data_3 = clean_force_n(thrustdata.thrust_raw_data_3, max_force_n);
@@ -301,7 +301,7 @@ int ThrustFeedbackControl::main()
 				orb_copy(ORB_ID(actuator_motors), thrustdesireddata_sub_fd, &thrustdesireddata);
 
 				const uint64_t now = hrt_absolute_time();
-				const float max_force_n = fmaxf(grams_to_newtons(_param_tfc_thrust_max.get()), 0.f);
+				const float max_force_n = fmaxf(grams_to_newtons(max_thrust_grams), 0.f);
 				thrustdesireddata.timestamp = now;
 
 				thrustcontrol.timestamp = now;
@@ -365,8 +365,8 @@ int ThrustFeedbackControl::main()
 			uint32_t bet_lookup_time_us[kMotorCount] = {};
 
 			for (int i = 0; i < kMotorCount; ++i) {
-				_thrust_desired(i) = clean_force_n(_thrust_desired(i), grams_to_newtons(_param_tfc_thrust_max.get()));
-				_thrust_measure(i) = clean_force_n(_thrust_measure(i), grams_to_newtons(_param_tfc_thrust_max.get()));
+				_thrust_desired(i) = clean_force_n(_thrust_desired(i), grams_to_newtons(max_thrust_grams));
+				_thrust_measure(i) = clean_force_n(_thrust_measure(i), grams_to_newtons(max_thrust_grams));
 
 				if (_thrust_desired(i) <= 1e-5f) {
 					pi_states[i].reset();

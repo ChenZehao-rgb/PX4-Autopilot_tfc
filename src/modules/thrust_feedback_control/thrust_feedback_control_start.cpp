@@ -58,14 +58,14 @@ int thrust_feedback_control_main(int argc, char *argv[])
         thrust_feedback_control_task = px4_task_spawn_cmd("thrust_feedback_control", // 任务名称
 						 SCHED_DEFAULT, // 调度策略
 						 SCHED_PRIORITY_MAX - 5, // 任务优先级
-						 3000, // 堆栈大小
+						 5000, // 堆栈大小
 						 thrust_feedback_control_thread_main, // 任务入口点函数
 						 (argv) ? (char *const *)&argv[2] : (char *const *)nullptr);
-        
+
         return 0;
     }
 
-    if (!strcmp(argv[1], "stop")) 
+    if (!strcmp(argv[1], "stop"))
     {
         ThrustFeedbackControl::appState.requestExit();
         ThrustFeedbackControl::appState.setRunning(false);
