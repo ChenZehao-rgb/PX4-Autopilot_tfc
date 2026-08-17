@@ -100,6 +100,8 @@ private:
     void	parameters_update();
 
     DEFINE_PARAMETERS(
+        (ParamInt<px4::params::TFC_CTL_MODE>) _param_tfc_ctl_mode,
+        (ParamFloat<px4::params::TFC_DES_THRUST>) _param_tfc_des_thrust,
         (ParamFloat<px4::params::TFC_THRUST_MAX>) _param_tfc_thrust_max,
         (ParamFloat<px4::params::TFC_BET_LEN_M>) _param_tfc_bet_len_m,
         (ParamFloat<px4::params::TFC_BET_A_DEG>) _param_tfc_bet_a_deg,
@@ -135,14 +137,14 @@ private:
         (ParamFloat<px4::params::TFC_IOLC_K2>) _param_tfc_iolc_k2,
         (ParamFloat<px4::params::TFC_IOLC_K3>) _param_tfc_iolc_k3,
         (ParamFloat<px4::params::TFC_IOLC_K4>) _param_tfc_iolc_k4,
-        (ParamFloat<px4::params::SENSOR1_BIAS1>) _param_sensor1_bias1,
-        (ParamFloat<px4::params::SENSOR1_BIAS2>) _param_sensor1_bias2,
-        (ParamFloat<px4::params::SENSOR2_BIAS1>) _param_sensor2_bias1,
-        (ParamFloat<px4::params::SENSOR2_BIAS2>) _param_sensor2_bias2,
-        (ParamFloat<px4::params::SENSOR3_BIAS1>) _param_sensor3_bias1,
-        (ParamFloat<px4::params::SENSOR3_BIAS2>) _param_sensor3_bias2,
-        (ParamFloat<px4::params::SENSOR4_BIAS1>) _param_sensor4_bias1,
-        (ParamFloat<px4::params::SENSOR4_BIAS2>) _param_sensor4_bias2,
+        // (ParamFloat<px4::params::SENSOR1_BIAS1>) _param_sensor1_bias1,
+        // (ParamFloat<px4::params::SENSOR1_BIAS2>) _param_sensor1_bias2,
+        // (ParamFloat<px4::params::SENSOR2_BIAS1>) _param_sensor2_bias1,
+        // (ParamFloat<px4::params::SENSOR2_BIAS2>) _param_sensor2_bias2,
+        // (ParamFloat<px4::params::SENSOR3_BIAS1>) _param_sensor3_bias1,
+        // (ParamFloat<px4::params::SENSOR3_BIAS2>) _param_sensor3_bias2,
+        // (ParamFloat<px4::params::SENSOR4_BIAS1>) _param_sensor4_bias1,
+        // (ParamFloat<px4::params::SENSOR4_BIAS2>) _param_sensor4_bias2,
         (ParamFloat<px4::params::THR_USE_FIL>) _param_tfc_use_filtered_thrust,
         (ParamFloat<px4::params::ALPHA_TAU>) _param_alpha_tau
     )

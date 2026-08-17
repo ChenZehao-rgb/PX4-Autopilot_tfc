@@ -32,6 +32,35 @@
  ****************************************************************************/
 
  /**
+ * Feedback mode
+ *
+ * Enables or disables thrust feedback control.
+ *
+ * @value 1 Model feedforward + FB_DISABLED
+ * @value 2 Disabled feedforward + FB_ENABLED
+ * @value 3 Static feedforward + FB_ENABLED
+ * @value 4 Model feedforward + FB_ENABLED
+ * @min 1
+ * @max 4
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_INT32(TFC_CTL_MODE, 1);
+
+/**
+ * Desired thrust
+ *
+ * Desired thrust for thrust feedback control.
+ *
+ * @unit N
+ * @min 0.0
+ * @max 40.0
+ * @decimal 2
+ * @increment 0.1
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_DES_THRUST, 15.0f);
+
+/**
  * The MAX_VALUE of the Force
  *
  * force_feedback the max_value of the force.
@@ -580,50 +609,50 @@ PARAM_DEFINE_FLOAT(TFC_FAC_I, 0.7f);
  *
  * @group Thrust Feedback Control
  */
-PARAM_DEFINE_FLOAT(SENSOR1_BIAS1, 260.0f);
-/**
- * Sensor1 Bias2
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR1_BIAS2, -635.0f);
-/**
- * Sensor2 Bias1
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR2_BIAS1, 0.0f);
-/**
- * Sensor2 Bias2
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR2_BIAS2, -785.0f);
+// PARAM_DEFINE_FLOAT(SENSOR1_BIAS1, 260.0f);
+// /**
+//  * Sensor1 Bias2
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR1_BIAS2, -635.0f);
+// /**
+//  * Sensor2 Bias1
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR2_BIAS1, 0.0f);
+// /**
+//  * Sensor2 Bias2
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR2_BIAS2, -785.0f);
 
-/**
- * Sensor3 Bias1
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR3_BIAS1, 156.0f);
-/**
- * Sensor3 Bias2
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR3_BIAS2, -266.0f);
-/**
- * Sensor4 Bias1
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR4_BIAS1, 261.0f);
-/**
- * Sensor4 Bias2
- *
- * @group Thrust Feedback Control
- */
-PARAM_DEFINE_FLOAT(SENSOR4_BIAS2, -465.0f);
+// /**
+//  * Sensor3 Bias1
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR3_BIAS1, 156.0f);
+// /**
+//  * Sensor3 Bias2
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR3_BIAS2, -266.0f);
+// /**
+//  * Sensor4 Bias1
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR4_BIAS1, 261.0f);
+// /**
+//  * Sensor4 Bias2
+//  *
+//  * @group Thrust Feedback Control
+//  */
+// PARAM_DEFINE_FLOAT(SENSOR4_BIAS2, -465.0f);
 
 /**
  * Use filtered thrust data or not

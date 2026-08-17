@@ -50,7 +50,7 @@ void LoggedTopics::add_default_topics()
 	add_topic("thrust_data", 10);
 	add_topic("thrust_control_data", 10);
 	add_topic("thrust_control", 10);
-	add_topic("rpm", 10);
+	// add_topic("rpm", 10);
 
 	add_optional_topic("ackermann_velocity_setpoint", 100);
 	add_topic("action_request");
@@ -164,7 +164,7 @@ void LoggedTopics::add_default_topics()
 	add_optional_topic_multi("control_allocator_status", 200, 2);
 	add_optional_topic_multi("rate_ctrl_status", 200, 2);
 	add_optional_topic_multi("sensor_hygrometer", 500, 4);
-	add_optional_topic_multi("rpm", 200);
+	add_optional_topic_multi("rpm", 20);
 	add_topic_multi("timesync_status", 1000, 3);
 	add_optional_topic_multi("telemetry_status", 1000, 4);
 

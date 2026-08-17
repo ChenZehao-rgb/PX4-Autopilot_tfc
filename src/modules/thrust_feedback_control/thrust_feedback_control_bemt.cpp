@@ -104,7 +104,7 @@ float clean_yaw_rate_rad_s(float yaw_rate_rad_s)
 float rpm_to_control_ff(float rpm, int motor_index)
 {
     // u = 0.00000003 rpm^2 + 0.00002263 rpm - 0.03261596
-	return 0.00000003f * rpm * rpm + 0.00002263f * rpm - 0.03261596f;
+	return 0.000000026972f * rpm * rpm + 0.00001829f * rpm - 0.03718f;
 }
 
 const char *bet_status_string(thrust_feedback_control::bet::BetRpmStatus status)
@@ -266,13 +266,13 @@ int ThrustFeedbackControl::main()
 				thrustdata.timestamp = hrt_absolute_time();
 				static uint64_t last_sensor_timestamp = thrustdata.timestamp;
 
-				thrustdata.thrust_raw_data_1 = grams_to_newtons(-static_cast<float>(sensordata.sensor2));
-				thrustdata.thrust_raw_data_2 = grams_to_newtons(static_cast<float>(sensordata.sensor2)
-							       + _param_sensor2_bias1.get() + _param_sensor2_bias2.get());
-				thrustdata.thrust_raw_data_3 = grams_to_newtons(static_cast<float>(sensordata.sensor3)
-							       + _param_sensor3_bias1.get() + _param_sensor3_bias2.get());
-				thrustdata.thrust_raw_data_4 = grams_to_newtons(static_cast<float>(sensordata.sensor4)
-							       + _param_sensor4_bias1.get() + _param_sensor4_bias2.get());
+				thrustdata.thrust_raw_data_1 = grams_to_newtons(static_cast<float>(sensordata.sensor2));
+				// thrustdata.thrust_raw_data_2 = grams_to_newtons(static_cast<float>(sensordata.sensor2)
+				// 			       + _param_sensor2_bias1.get() + _param_sensor2_bias2.get());
+				// thrustdata.thrust_raw_data_3 = grams_to_newtons(static_cast<float>(sensordata.sensor3)
+				// 			       + _param_sensor3_bias1.get() + _param_sensor3_bias2.get());
+				// thrustdata.thrust_raw_data_4 = grams_to_newtons(static_cast<float>(sensordata.sensor4)
+							//        + _param_sensor4_bias1.get() + _param_sensor4_bias2.get());
 
 				const float max_force_n = grams_to_newtons(max_thrust_grams);
 				thrustdata.thrust_raw_data_1 = clean_force_n(thrustdata.thrust_raw_data_1, max_force_n);
@@ -309,7 +309,8 @@ int ThrustFeedbackControl::main()
 				thrustcontrol.reversible_flags = thrustdesireddata.reversible_flags;
 				std::memcpy(thrustcontrol.control, thrustdesireddata.control, sizeof(thrustcontrol.control));
 
-				_thrust_desired(0) = clean_force_n(_force_from_rc, max_force_n);
+				// _thrust_desired(0) = clean_force_n(_force_from_rc, max_force_n);
+				_thrust_desired(0) = _param_tfc_des_thrust.get();
 				_thrust_desired(1) = clean_force_n(clean_normalized_control(thrustdesireddata.control[1]) * max_force_n, max_force_n);
 				_thrust_desired(2) = clean_force_n(clean_normalized_control(thrustdesireddata.control[2]) * max_force_n, max_force_n);
 				_thrust_desired(3) = clean_force_n(clean_normalized_control(thrustdesireddata.control[3]) * max_force_n, max_force_n);
@@ -405,12 +406,29 @@ int ThrustFeedbackControl::main()
 									bet_freestream_m_s, bet_alpha_deg);
 				}
 
-				_iolc_u_ff(i) = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
 				thrust_error[i] = _thrust_desired(i) - _thrust_measure(i);
 				dt_s[i] = control_dt_s(pi_states[i], now);
 				feedback_out[i] = update_pi(pi_states[i], thrust_error[i], kp, ki, lim_i, dt_s[i]);
-				_control_output(i) = feedback_out[i];
-				_total_output(i) = math::constrain(_iolc_u_ff(i) + feedback_out[i], 0.f, 1.f);
+				// _control_output(i) = feedback_out[i]; // 注释以关闭反馈
+				if(_param_tfc_ctl_mode.get() == 1){
+					// 前馈控制
+					_iolc_u_ff(i) = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
+					_control_output(i) = 0.f;
+				}else if(_param_tfc_ctl_mode.get() == 2){
+					// 反馈控制
+					_iolc_u_ff(i) = 0.f;
+					_control_output(i) = feedback_out[i];
+				}else if(_param_tfc_ctl_mode.get() == 3){
+					// 固定前馈+反馈控制
+					_iolc_u_ff(i) = 0.517f; // 固定前馈值
+					_control_output(i) = feedback_out[i];
+				}
+				else if(_param_tfc_ctl_mode.get() == 4){
+					// 前馈+反馈控制
+					_iolc_u_ff(i) = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
+					_control_output(i) = feedback_out[i];
+				}
+				_total_output(i) = math::constrain(_iolc_u_ff(i) + _control_output(i), 0.f, 1.f);
 			}
 
 			thrustcontroldata.bet_freestream_m_s = bet_freestream_m_s;
