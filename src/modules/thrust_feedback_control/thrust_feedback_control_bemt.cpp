@@ -126,6 +126,9 @@ const char *bet_status_string(thrust_feedback_control::bet::BetRpmStatus status)
 
 	case BetRpmStatus::NonMonotonicTable:
 		return "non_monotonic_table";
+
+	case BetRpmStatus::ResidualFallback:
+		return "residual_fallback";
 	}
 
 	return "unknown";
@@ -380,7 +383,12 @@ int ThrustFeedbackControl::main()
 				// 记录查表耗时
 				const uint64_t lookup_start_us = hrt_absolute_time();
 				const thrust_feedback_control::bet::BetRpmSolution bet_solution =
-					thrust_feedback_control::bet::lookup_rpm_for_lift_n(_thrust_desired(i), bet_freestream_m_s, bet_alpha_deg);
+					_param_tfc_bet_res_en.get() != 0
+					? thrust_feedback_control::bet::lookup_corrected_rpm_for_lift_n(
+						_thrust_desired(i), bet_freestream_m_s, bet_alpha_deg,
+						_param_tfc_bet_res_scl.get())
+					: thrust_feedback_control::bet::lookup_rpm_for_lift_n(
+						_thrust_desired(i), bet_freestream_m_s, bet_alpha_deg);
 				const uint64_t lookup_time_us = hrt_absolute_time() - lookup_start_us;
 				bet_lookup_time_us[i] = static_cast<uint32_t>(lookup_time_us);
 				bet_achieved_lift_n[i] = bet_solution.achieved_lift_n;
@@ -393,7 +401,12 @@ int ThrustFeedbackControl::main()
 				} else if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::OutOfTableRange) {
 					rpm_ff[i] = bet_solution.rpm;
 					warn_bet_status_once_per_second(now, i, bet_solution.status, _thrust_desired(i),
-									bet_freestream_m_s, bet_alpha_deg);
+								bet_freestream_m_s, bet_alpha_deg);
+
+				} else if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::ResidualFallback) {
+					rpm_ff[i] = bet_solution.rpm;
+					warn_bet_status_once_per_second(now, i, bet_solution.status, _thrust_desired(i),
+								bet_freestream_m_s, bet_alpha_deg);
 
 				} else if (bet_solution.status == thrust_feedback_control::bet::BetRpmStatus::AboveRpmLimit) {
 					rpm_ff[i] = thrust_feedback_control::bet::kBetMaxRpm;

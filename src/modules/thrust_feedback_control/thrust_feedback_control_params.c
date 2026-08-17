@@ -103,6 +103,33 @@ PARAM_DEFINE_FLOAT(TFC_BET_LEN_M, 1.5f);
  */
 PARAM_DEFINE_FLOAT(TFC_BET_A_DEG, 0.0f);
 
+/**
+ * Enable lift-calibrated BET residual correction
+ *
+ * Uses the 2026-08-18 three-dimensional RPM/freestream/angle experimental
+ * model when the requested lift is within its 3000--5000 rpm envelope. The
+ * uncorrected BET lookup remains the automatic fallback outside that envelope.
+ *
+ * @boolean
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_INT32(TFC_BET_RES_EN, 1);
+
+/**
+ * BET residual correction scale
+ *
+ * Zero exactly restores the original BET lift table and one applies the full
+ * lift-calibrated experimental correction. Intermediate values support staged
+ * bench validation.
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 2
+ * @increment 0.05
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_BET_RES_SCL, 1.0f);
+
  /**
  * PWM to thrust conversion factor
  *

@@ -38,6 +38,8 @@ px4_add_library(thrust_feedback_bet
         bet_inverse_solver.hpp
         bet_lift_lookup.cpp
         bet_lift_lookup.hpp
+        bet_residual_lookup.cpp
+        bet_residual_lookup.hpp
 )
 target_include_directories(thrust_feedback_bet PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 

@@ -44,6 +44,7 @@ enum class BetRpmStatus {
 	OutOfTableRange,
 	AboveRpmLimit,
 	NonMonotonicTable,
+	ResidualFallback,
 };
 
 struct BetRpmSolution {
@@ -64,6 +65,19 @@ BetRpmSolution solve_rpm_for_lift_kgf(float lift_kgf, float freestream_m_s, floa
 
 BetRpmSolution lookup_rpm_for_lift_n(float lift_n, float freestream_m_s, float alpha_deg);
 BetRpmSolution lookup_rpm_for_lift_kgf(float lift_kgf, float freestream_m_s, float alpha_deg);
+
+/**
+ * Invert the lift-calibrated BEMT + experimental-residual model.
+ *
+ * The correction is valid only where the desired lift is bracketed by the
+ * 3000--5000 rpm experimental table. Outside that range the uncorrected BEMT
+ * lookup is returned with ResidualFallback status. correction_scale=0 is an
+ * exact rollback to the uncorrected BEMT lookup.
+ */
+BetRpmSolution lookup_corrected_rpm_for_lift_n(float lift_n, float freestream_m_s, float alpha_deg,
+		float correction_scale = 1.f);
+BetRpmSolution lookup_corrected_rpm_for_lift_kgf(float lift_kgf, float freestream_m_s, float alpha_deg,
+		float correction_scale = 1.f);
 
 } // namespace bet
 } // namespace thrust_feedback_control

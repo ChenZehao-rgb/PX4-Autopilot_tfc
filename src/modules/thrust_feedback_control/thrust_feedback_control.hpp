@@ -105,6 +105,8 @@ private:
         (ParamFloat<px4::params::TFC_THRUST_MAX>) _param_tfc_thrust_max,
         (ParamFloat<px4::params::TFC_BET_LEN_M>) _param_tfc_bet_len_m,
         (ParamFloat<px4::params::TFC_BET_A_DEG>) _param_tfc_bet_a_deg,
+        (ParamInt<px4::params::TFC_BET_RES_EN>) _param_tfc_bet_res_en,
+        (ParamFloat<px4::params::TFC_BET_RES_SCL>) _param_tfc_bet_res_scl,
         (ParamFloat<px4::params::TFC_IOLC_K>) _param_tfc_iolc_k,
         (ParamFloat<px4::params::TFC_IOLC_KI>) _param_tfc_iolc_ki,
         (ParamFloat<px4::params::TFC_LIM_I>) _param_tfc_lim_i,

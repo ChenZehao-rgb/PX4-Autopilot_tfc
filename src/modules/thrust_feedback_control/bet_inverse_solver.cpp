@@ -34,6 +34,7 @@
 #include "bet_inverse_solver.hpp"
 #include "bet_aero_data.hpp"
 #include "bet_lift_lookup.hpp"
+#include "bet_residual_lookup.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -190,6 +191,58 @@ float interpolated_lift_profile_value(std::size_t rpm_index, std::size_t alpha_i
 	const float l0 = l00 + alpha_weight * (l10 - l00);
 	const float l1 = l01 + alpha_weight * (l11 - l01);
 	return l0 + freestream_weight * (l1 - l0);
+}
+
+float interpolated_bet_lookup_lift_n(float rpm, float freestream_m_s, float alpha_deg)
+{
+	rpm = constrain_float(rpm, kBetLiftRpmGrid[0], kBetLiftRpmGrid[kNumBetLiftRpm - 1]);
+	freestream_m_s = constrain_float(freestream_m_s, kBetLiftFreestreamGrid[0],
+				       kBetLiftFreestreamGrid[kNumBetLiftFreestream - 1]);
+	alpha_deg = constrain_float(alpha_deg, kBetLiftAlphaGridDeg[0], kBetLiftAlphaGridDeg[kNumBetLiftAlpha - 1]);
+
+	float rpm_weight = 0.f;
+	float alpha_weight = 0.f;
+	float freestream_weight = 0.f;
+	const std::size_t rpm_index = lower_grid_index(kBetLiftRpmGrid, kNumBetLiftRpm, rpm, rpm_weight);
+	const std::size_t alpha_index = lower_grid_index(kBetLiftAlphaGridDeg, kNumBetLiftAlpha, alpha_deg, alpha_weight);
+	const std::size_t freestream_index = lower_grid_index(kBetLiftFreestreamGrid, kNumBetLiftFreestream,
+						     freestream_m_s, freestream_weight);
+	const float lift_low = interpolated_lift_profile_value(rpm_index, alpha_index, alpha_weight,
+				 freestream_index, freestream_weight);
+	const float lift_high = interpolated_lift_profile_value(rpm_index + 1, alpha_index, alpha_weight,
+				  freestream_index, freestream_weight);
+	return lift_low + rpm_weight * (lift_high - lift_low);
+}
+
+float corrected_lift_value_at(std::size_t alpha_index, std::size_t freestream_index, std::size_t rpm_index)
+{
+	const std::size_t index = (alpha_index * kNumBetResidualFreestream + freestream_index)
+				  * kNumBetResidualRpm + rpm_index;
+	return kBetCorrectedLiftLookupN[index];
+}
+
+float interpolated_corrected_lift_profile_value(std::size_t rpm_index, std::size_t alpha_index,
+		float alpha_weight, std::size_t freestream_index, float freestream_weight)
+{
+	const float l00 = corrected_lift_value_at(alpha_index, freestream_index, rpm_index);
+	const float l10 = corrected_lift_value_at(alpha_index + 1, freestream_index, rpm_index);
+	const float l01 = corrected_lift_value_at(alpha_index, freestream_index + 1, rpm_index);
+	const float l11 = corrected_lift_value_at(alpha_index + 1, freestream_index + 1, rpm_index);
+
+	const float l0 = l00 + alpha_weight * (l10 - l00);
+	const float l1 = l01 + alpha_weight * (l11 - l01);
+	return l0 + freestream_weight * (l1 - l0);
+}
+
+float blended_corrected_lift_profile_value(std::size_t residual_rpm_index, std::size_t alpha_index,
+		float alpha_weight, std::size_t freestream_index, float freestream_weight,
+		float freestream_m_s, float alpha_deg, float correction_scale)
+{
+	const float rpm = kBetResidualRpmGrid[residual_rpm_index];
+	const float bet_lift = interpolated_bet_lookup_lift_n(rpm, freestream_m_s, alpha_deg);
+	const float corrected_lift = interpolated_corrected_lift_profile_value(residual_rpm_index, alpha_index,
+				     alpha_weight, freestream_index, freestream_weight);
+	return bet_lift + correction_scale * (corrected_lift - bet_lift);
 }
 
 } // namespace
@@ -389,6 +442,84 @@ BetRpmSolution lookup_rpm_for_lift_n(float lift_n, float freestream_m_s, float a
 BetRpmSolution lookup_rpm_for_lift_kgf(float lift_kgf, float freestream_m_s, float alpha_deg)
 {
 	return lookup_rpm_for_lift_n(lift_kgf * kBetGravityMps2, freestream_m_s, alpha_deg);
+}
+
+BetRpmSolution lookup_corrected_rpm_for_lift_n(float lift_n, float freestream_m_s, float alpha_deg,
+		float correction_scale)
+{
+	BetRpmSolution solution{};
+
+	if (!is_valid_lift_input(lift_n, freestream_m_s, alpha_deg) || !std::isfinite(correction_scale)) {
+		solution.status = BetRpmStatus::InvalidInput;
+		return solution;
+	}
+
+	correction_scale = constrain_float(correction_scale, 0.f, 1.f);
+
+	if (correction_scale <= 1e-6f || lift_n <= 0.f) {
+		return lookup_rpm_for_lift_n(lift_n, freestream_m_s, alpha_deg);
+	}
+
+	const bool input_clamped = freestream_m_s < kBetResidualFreestreamGrid[0]
+				   || freestream_m_s > kBetResidualFreestreamGrid[kNumBetResidualFreestream - 1]
+				   || alpha_deg < kBetResidualAlphaGridDeg[0]
+				   || alpha_deg > kBetResidualAlphaGridDeg[kNumBetResidualAlpha - 1];
+	freestream_m_s = constrain_float(freestream_m_s, kBetResidualFreestreamGrid[0],
+				       kBetResidualFreestreamGrid[kNumBetResidualFreestream - 1]);
+	alpha_deg = constrain_float(alpha_deg, kBetResidualAlphaGridDeg[0],
+				  kBetResidualAlphaGridDeg[kNumBetResidualAlpha - 1]);
+
+	float alpha_weight = 0.f;
+	float freestream_weight = 0.f;
+	const std::size_t alpha_index = lower_grid_index(kBetResidualAlphaGridDeg, kNumBetResidualAlpha,
+						       alpha_deg, alpha_weight);
+	const std::size_t freestream_index = lower_grid_index(kBetResidualFreestreamGrid,
+						    kNumBetResidualFreestream, freestream_m_s,
+						    freestream_weight);
+
+	float previous_lift = blended_corrected_lift_profile_value(0, alpha_index, alpha_weight,
+			      freestream_index, freestream_weight, freestream_m_s, alpha_deg, correction_scale);
+
+	for (std::size_t rpm_index = 1; rpm_index < kNumBetResidualRpm; ++rpm_index) {
+		const float current_lift = blended_corrected_lift_profile_value(rpm_index, alpha_index, alpha_weight,
+				   freestream_index, freestream_weight, freestream_m_s, alpha_deg, correction_scale);
+
+		if (current_lift + 1e-4f < previous_lift) {
+			solution.status = BetRpmStatus::NonMonotonicTable;
+			return solution;
+		}
+
+		if (lift_n >= previous_lift && lift_n <= current_lift) {
+			const float lift_span = current_lift - previous_lift;
+			const float weight = lift_span > 1e-6f ? (lift_n - previous_lift) / lift_span : 0.f;
+			const float rpm_low = kBetResidualRpmGrid[rpm_index - 1];
+			const float rpm_high = kBetResidualRpmGrid[rpm_index];
+			solution.rpm = rpm_low + weight * (rpm_high - rpm_low);
+			solution.achieved_lift_n = lift_n;
+			solution.iterations = static_cast<int>(rpm_index);
+			solution.status = input_clamped ? BetRpmStatus::OutOfTableRange : BetRpmStatus::Ok;
+			return solution;
+		}
+
+		previous_lift = current_lift;
+	}
+
+	// Do not extrapolate the experimental correction beyond 3000--5000 rpm.
+	// Keep the original BEMT solution available as a deterministic fallback.
+	solution = lookup_rpm_for_lift_n(lift_n, freestream_m_s, alpha_deg);
+
+	if (solution.status == BetRpmStatus::Ok) {
+		solution.status = input_clamped ? BetRpmStatus::OutOfTableRange : BetRpmStatus::ResidualFallback;
+	}
+
+	return solution;
+}
+
+BetRpmSolution lookup_corrected_rpm_for_lift_kgf(float lift_kgf, float freestream_m_s, float alpha_deg,
+		float correction_scale)
+{
+	return lookup_corrected_rpm_for_lift_n(lift_kgf * kBetGravityMps2, freestream_m_s, alpha_deg,
+		       correction_scale);
 }
 
 } // namespace bet

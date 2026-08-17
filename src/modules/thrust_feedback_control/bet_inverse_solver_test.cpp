@@ -32,6 +32,7 @@
  ****************************************************************************/
 
 #include "bet_inverse_solver.hpp"
+#include "bet_residual_lookup.hpp"
 
 #include <gtest/gtest.h>
 
@@ -169,4 +170,73 @@ TEST(BetInverseSolver, TableLookupRangeAndLimitStatus)
 	EXPECT_NEAR(clamped.rpm, boundary.rpm, 1e-3f);
 	EXPECT_NEAR(clamped.achieved_lift_n, boundary.achieved_lift_n, 1e-3f);
 	EXPECT_EQ(lookup_rpm_for_lift_n(1000.f, 0.f, 0.f).status, BetRpmStatus::AboveRpmLimit);
+}
+
+TEST(BetInverseSolver, CorrectedAxial15NewtonReferences)
+{
+	struct CorrectedReference {
+		float freestream_m_s;
+		float rpm;
+	};
+
+	const CorrectedReference references[] {
+		{0.f, 3591.7177f},
+		{5.10f, 4064.7877f},
+		{10.20f, 4622.8988f},
+	};
+
+	for (const CorrectedReference &reference : references) {
+		const BetRpmSolution solution = lookup_corrected_rpm_for_lift_n(
+				15.f, reference.freestream_m_s, 0.f, 1.f);
+		EXPECT_EQ(solution.status, BetRpmStatus::Ok);
+		EXPECT_NEAR(solution.rpm, reference.rpm, 0.2f)
+				<< "freestream=" << reference.freestream_m_s;
+		EXPECT_NEAR(solution.achieved_lift_n, 15.f, 1e-4f);
+	}
+}
+
+TEST(BetInverseSolver, CorrectedLookupZeroScaleIsExactRollback)
+{
+	const BetRpmSolution baseline = lookup_rpm_for_lift_n(15.f, 5.10f, 0.f);
+	const BetRpmSolution rollback = lookup_corrected_rpm_for_lift_n(15.f, 5.10f, 0.f, 0.f);
+
+	EXPECT_EQ(rollback.status, baseline.status);
+	EXPECT_FLOAT_EQ(rollback.rpm, baseline.rpm);
+	EXPECT_FLOAT_EQ(rollback.achieved_lift_n, baseline.achieved_lift_n);
+}
+
+TEST(BetInverseSolver, CorrectedLookupFallsBackOutsideRpmEnvelope)
+{
+	const BetRpmSolution solution = lookup_corrected_rpm_for_lift_n(5.f, 0.f, 0.f, 1.f);
+	const BetRpmSolution baseline = lookup_rpm_for_lift_n(5.f, 0.f, 0.f);
+
+	EXPECT_EQ(solution.status, BetRpmStatus::ResidualFallback);
+	EXPECT_FLOAT_EQ(solution.rpm, baseline.rpm);
+	EXPECT_FLOAT_EQ(solution.achieved_lift_n, baseline.achieved_lift_n);
+}
+
+TEST(BetInverseSolver, CorrectedLookupReportsClampedInput)
+{
+	const BetRpmSolution solution = lookup_corrected_rpm_for_lift_n(15.f, 10.3f, 0.f, 1.f);
+
+	EXPECT_EQ(solution.status, BetRpmStatus::OutOfTableRange);
+	EXPECT_NEAR(solution.rpm, 4622.8988f, 0.2f);
+}
+
+TEST(BetInverseSolver, CorrectedExperimentalTableIsFiniteAndRpmMonotonic)
+{
+	for (std::size_t alpha = 0; alpha < kNumBetResidualAlpha; ++alpha) {
+		for (std::size_t freestream = 0; freestream < kNumBetResidualFreestream; ++freestream) {
+			float previous = -std::numeric_limits<float>::infinity();
+
+			for (std::size_t rpm = 0; rpm < kNumBetResidualRpm; ++rpm) {
+				const std::size_t index = (alpha * kNumBetResidualFreestream + freestream)
+						  * kNumBetResidualRpm + rpm;
+				const float lift = kBetCorrectedLiftLookupN[index];
+				EXPECT_TRUE(std::isfinite(lift));
+				EXPECT_GT(lift, previous);
+				previous = lift;
+			}
+		}
+	}
 }
