@@ -31,7 +31,7 @@
  *
  ****************************************************************************/
 
- /**
+/**
  * Feedback mode
  *
  * Enables or disables thrust feedback control.
@@ -130,7 +130,7 @@ PARAM_DEFINE_INT32(TFC_BET_RES_EN, 1);
  */
 PARAM_DEFINE_FLOAT(TFC_BET_RES_SCL, 1.0f);
 
- /**
+/**
  * PWM to thrust conversion factor
  *
  * PWM to thrust conversion factor of the mortor 1.
@@ -144,7 +144,7 @@ PARAM_DEFINE_FLOAT(TFC_BET_RES_SCL, 1.0f);
  */
 PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_1, 2.312f);
 
- /**
+/**
  * PWM to thrust conversion factor
  *
  * PWM to thrust conversion factor of the mortor 2.
@@ -159,7 +159,7 @@ PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_1, 2.312f);
  */
 PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_2, 1.954f);
 
- /**
+/**
  * PWM to thrust conversion factor
  *
  * PWM to thrust conversion factor of the mortor 3.
@@ -174,7 +174,7 @@ PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_2, 1.954f);
  */
 PARAM_DEFINE_FLOAT(TFC_PWM_TO_THR_3, 2.544f);
 
- /**
+/**
  * PWM to thrust conversion factor
  *
  * PWM to thrust conversion factor of the mortor 4.

@@ -195,6 +195,26 @@ TEST(BetInverseSolver, CorrectedAxial15NewtonReferences)
 	}
 }
 
+TEST(BetInverseSolver, CorrectedAxial15NewtonFreestreamSweep)
+{
+	static constexpr int kNumSteps = 68; // 0.00 through 10.20 m/s, inclusive.
+	float previous_rpm = 0.f;
+
+	for (int step = 0; step <= kNumSteps; ++step) {
+		const float freestream_m_s = static_cast<float>(step * 15) / 100.f;
+		SCOPED_TRACE(::testing::Message() << "freestream=" << freestream_m_s);
+
+		const BetRpmSolution solution = lookup_corrected_rpm_for_lift_n(
+				15.f, freestream_m_s, 0.f, 1.f);
+		EXPECT_EQ(solution.status, BetRpmStatus::Ok);
+		EXPECT_NEAR(solution.achieved_lift_n, 15.f, 1e-4f);
+		EXPECT_GT(solution.rpm, previous_rpm);
+		EXPECT_GE(solution.rpm, kBetMinRpm);
+		EXPECT_LE(solution.rpm, kBetMaxRpm);
+		previous_rpm = solution.rpm;
+	}
+}
+
 TEST(BetInverseSolver, CorrectedLookupZeroScaleIsExactRollback)
 {
 	const BetRpmSolution baseline = lookup_rpm_for_lift_n(15.f, 5.10f, 0.f);
