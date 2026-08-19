@@ -98,8 +98,18 @@ int thrust_feedback_control_thread_main(int argc, char *argv[])
 
     printf("Thrust Feedback Control Start\n");
 
-    ThrustFeedbackControl thrustfeedbackcontrol;
-    thrustfeedbackcontrol.main();
+    // 对象较大（参数集 + 历史缓存），放在堆上避免超出任务栈帧限制
+    ThrustFeedbackControl *thrustfeedbackcontrol = new ThrustFeedbackControl();
+
+    if (thrustfeedbackcontrol == nullptr)
+    {
+        PX4_ERR("alloc failed");
+        return -1;
+    }
+
+    thrustfeedbackcontrol->main();
+
+    delete thrustfeedbackcontrol;
 
     printf("exiting\n");
 

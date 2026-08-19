@@ -52,8 +52,11 @@ constexpr float kBetLengthMaxM = 2.0f;
 constexpr uint64_t kBetWarnIntervalUs = 1000000;
 // 只有 1 号电机装了 AS5600 转速传感器，其余电机只能用映射开环
 constexpr int kRpmSensorMotorIndex = 0;
-// 拉力传感器的测量轴对应机体 FRD 坐标系的 y 轴（vehicle_acceleration.xyz[1]）
-constexpr int kLoadAccelAxis = 1;
+// 寄生力标定公式 F_parasitic,g = b0 - 36.839*ay(t-0.03) + 3.332*ax(t-0.03)
+constexpr uint64_t kParasiticAccelDelayUs = 30000;   // 加速度取 30ms 之前的数据
+constexpr float kParasiticCoeffAy = -36.839f;        // ay 系数 [g/(m/s^2)]
+constexpr float kParasiticCoeffAx = 3.332f;          // ax 系数 [g/(m/s^2)]
+constexpr int kSensorBiasInitSamples = 20;           // 上电后用于估计 b0 的样本数
 
 struct PiState {
 	float integral{0.f};
@@ -87,23 +90,13 @@ float clean_force_n(float force_n, float max_force_n)
 	}
 
 	const float upper_limit = PX4_ISFINITE(max_force_n) ? fmaxf(max_force_n, 0.f) : 0.f;
-	return math::constrain(force_n, 0.f, upper_limit);
+	return math::constrain(force_n, -upper_limit, upper_limit);
 }
 
 float clean_bet_length_m(float length_m)
 {
 	return math::constrain(PX4_ISFINITE(length_m) ? length_m : kBetLengthDefaultM,
 			       kBetLengthMinM, kBetLengthMaxM);
-}
-
-// 传感器上方载荷的惯性力补偿：F = m * a，m 由参数给出，a 取机体测量轴加速度
-float load_inertial_force_n(float load_mass_kg, float accel_m_s2)
-{
-	if (!PX4_ISFINITE(load_mass_kg) || !PX4_ISFINITE(accel_m_s2)) {
-		return 0.f;
-	}
-
-	return fmaxf(load_mass_kg, 0.f) * accel_m_s2;
 }
 
 float clean_yaw_rate_rad_s(float yaw_rate_rad_s)
@@ -253,6 +246,114 @@ void reset_pi_states(PiState states[kMotorCount])
 
 } // namespace
 
+// 每次有新的 vehicle_acceleration 数据时压入环形缓存，供延迟取值使用
+void ThrustFeedbackControl::update_accel_history()
+{
+	if (!_vehicle_acceleration_sub.update(&_vehicle_acceleration)) {
+		return;
+	}
+
+	const float accel_x = _vehicle_acceleration.xyz[0];
+	const float accel_y = _vehicle_acceleration.xyz[1];
+
+	if (!PX4_ISFINITE(accel_x) || !PX4_ISFINITE(accel_y)) {
+		return;
+	}
+
+	uint64_t sample_time = _vehicle_acceleration.timestamp_sample;
+
+	if (sample_time == 0) {
+		sample_time = _vehicle_acceleration.timestamp;
+	}
+
+	if (sample_time == 0) {
+		sample_time = hrt_absolute_time();
+	}
+
+	_accel_history[_accel_history_head] = AccelSample{sample_time, accel_x, accel_y};
+	_accel_history_head = (_accel_history_head + 1) % kAccelHistorySize;
+
+	if (_accel_history_count < kAccelHistorySize) {
+		_accel_history_count++;
+	}
+}
+
+// 取 now_us - 30ms 时刻的加速度：选取时间戳不晚于目标时刻的最新样本
+bool ThrustFeedbackControl::get_delayed_accel(uint64_t now_us, float &accel_x, float &accel_y) const
+{
+	if (_accel_history_count == 0) {
+		return false;
+	}
+
+	const uint64_t target = (now_us > kParasiticAccelDelayUs) ? (now_us - kParasiticAccelDelayUs) : 0;
+
+	const AccelSample *best = nullptr;
+	const AccelSample *oldest = nullptr;
+
+	for (int i = 0; i < _accel_history_count; i++) {
+		// 从最新往回遍历
+		const int index = (_accel_history_head - 1 - i + kAccelHistorySize * 2) % kAccelHistorySize;
+		const AccelSample &sample = _accel_history[index];
+		oldest = &sample;
+
+		if (sample.timestamp <= target) {
+			best = &sample;
+			break;
+		}
+	}
+
+	// 缓存还没积累到 30ms 时退化为使用最旧的样本
+	if (best == nullptr) {
+		best = oldest;
+	}
+
+	if (best == nullptr) {
+		return false;
+	}
+
+	accel_x = best->x;
+	accel_y = best->y;
+	return true;
+}
+
+// 上电（模块启动）后的传感器初值 b0，取最初若干个样本的平均值，只标定一次
+void ThrustFeedbackControl::update_sensor_bias(float sensor_raw_g)
+{
+	if (_sensor_bias_valid || !PX4_ISFINITE(sensor_raw_g)) {
+		return;
+	}
+
+	_sensor_bias_sum_g += sensor_raw_g;
+	_sensor_bias_samples++;
+
+	if (_sensor_bias_samples >= kSensorBiasInitSamples) {
+		_sensor_bias_g = _sensor_bias_sum_g / static_cast<float>(_sensor_bias_samples);
+		_sensor_bias_valid = true;
+		PX4_INFO("thrust sensor bias b0 = %.2f g", static_cast<double>(_sensor_bias_g));
+	}
+}
+
+// F_parasitic,g = b0 - 36.839*ay(t-0.03) + 3.332*ax(t-0.03)，单位 g
+float ThrustFeedbackControl::compute_parasitic_force_g(uint64_t now_us) const
+{
+	// b0 尚未标定完成时先用当前累计均值，避免开机瞬间补偿跳变
+	float bias_g = _sensor_bias_g;
+
+	if (!_sensor_bias_valid) {
+		bias_g = (_sensor_bias_samples > 0) ? (_sensor_bias_sum_g / static_cast<float>(_sensor_bias_samples)) : 0.f;
+	}
+
+	float accel_x = 0.f;
+	float accel_y = 0.f;
+
+	if (!get_delayed_accel(now_us, accel_x, accel_y)) {
+		return bias_g;
+	}
+
+	const float parasitic_g = bias_g + kParasiticCoeffAy * accel_y + kParasiticCoeffAx * accel_x;
+	return PX4_ISFINITE(parasitic_g) ? parasitic_g : bias_g;
+}
+
 void ThrustFeedbackControl::parameters_update()
 {
 	if (_parameter_update_sub.updated()) {
@@ -298,7 +399,7 @@ int ThrustFeedbackControl::main()
 			_armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 		}
 
-		_vehicle_acceleration_sub.update(&_vehicle_acceleration);
+		update_accel_history();
 
 		if (_mcs_sub.update(&_mcs)) {
 			const float normalized_throttle = clean_normalized_control((_mcs.throttle + 1.f) * 0.5f);
@@ -325,11 +426,13 @@ int ThrustFeedbackControl::main()
 				thrustdata.timestamp = hrt_absolute_time();
 				static uint64_t last_sensor_timestamp = thrustdata.timestamp;
 
-				// 载荷（约 330g）在机体加速时压/拉传感器，需按 m*a 修正读数
-				const float load_force_n = load_inertial_force_n(_param_tfc_load_m_kg.get(),
-							  _vehicle_acceleration.xyz[kLoadAccelAxis]);
+				// 寄生力标定：F_parasitic,g = b0 - 36.839*ay(t-0.03) + 3.332*ax(t-0.03)
+				// b0 为上电初值，加速度取 30ms 之前的数据；实际拉力 = 传感器读数 - 寄生力
+				const float sensor_raw_g = static_cast<float>(sensordata.sensor2);
+				update_sensor_bias(sensor_raw_g);
+				const float parasitic_force_g = compute_parasitic_force_g(thrustdata.timestamp);
 
-				thrustdata.thrust_raw_data_1 = grams_to_newtons(static_cast<float>(sensordata.sensor2)) + load_force_n;
+				thrustdata.thrust_raw_data_1 = grams_to_newtons(sensor_raw_g - parasitic_force_g);
 				// thrustdata.thrust_raw_data_2 = grams_to_newtons(static_cast<float>(sensordata.sensor2)
 				// 			       + _param_sensor2_bias1.get() + _param_sensor2_bias2.get());
 				// thrustdata.thrust_raw_data_3 = grams_to_newtons(static_cast<float>(sensordata.sensor3)

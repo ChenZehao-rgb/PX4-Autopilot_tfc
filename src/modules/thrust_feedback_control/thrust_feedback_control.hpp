@@ -101,6 +101,12 @@ private:
 
     void	parameters_update();
 
+    // 寄生力标定相关：F_parasitic,g = b0 - 36.839*ay(t-0.03) + 3.332*ax(t-0.03)
+    void	update_accel_history();
+    bool	get_delayed_accel(uint64_t now_us, float &accel_x, float &accel_y) const;
+    void	update_sensor_bias(float sensor_raw_g);
+    float	compute_parasitic_force_g(uint64_t now_us) const;
+
     DEFINE_PARAMETERS(
         (ParamInt<px4::params::TFC_CTL_MODE>) _param_tfc_ctl_mode,
         (ParamFloat<px4::params::TFC_DES_THRUST>) _param_tfc_des_thrust,
@@ -230,6 +236,24 @@ private:
 
     uORB::Subscription	_vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
     vehicle_acceleration_s    _vehicle_acceleration{};
+
+    // 加速度历史缓存，用于取 30ms 之前的 ax/ay
+    struct AccelSample {
+        uint64_t timestamp{0};
+        float x{0.f};
+        float y{0.f};
+    };
+
+    static constexpr int kAccelHistorySize = 64;
+    AccelSample _accel_history[kAccelHistorySize]{};
+    int _accel_history_head{0};        // 下一个写入位置
+    int _accel_history_count{0};       // 已缓存的样本数
+
+    // 上电初值 b0（单位：g），由模块启动后最初若干个传感器样本平均得到
+    float _sensor_bias_sum_g{0.f};
+    int   _sensor_bias_samples{0};
+    float _sensor_bias_g{0.f};
+    bool  _sensor_bias_valid{false};
 
     uORB::Subscription	_rpm_sub{ORB_ID(rpm)};
     rpm_s               _rpm{};
