@@ -131,6 +131,85 @@ PARAM_DEFINE_INT32(TFC_BET_RES_EN, 1);
 PARAM_DEFINE_FLOAT(TFC_BET_RES_SCL, 1.0f);
 
 /**
+ * Feedforward generation mode (rpm setpoint -> normalized control)
+ *
+ * Selects how the BET rpm feedforward is turned into a normalized motor
+ * command. Only used by TFC_CTL_MODE 1 and 4 (model feedforward modes).
+ *
+ * @value 0 Static rpm->control map only (open loop)
+ * @value 1 Static map as feedforward + rpm closed loop trim
+ * @min 0
+ * @max 1
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_INT32(TFC_RPM_MODE, 0);
+
+/**
+ * RPM loop proportional gain
+ *
+ * Normalized control units per rpm of speed error.
+ *
+ * @min 0.0
+ * @max 0.01
+ * @decimal 8
+ * @increment 0.000001
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_RPM_KP, 0.00002f);
+
+/**
+ * RPM loop integral gain
+ *
+ * Normalized control units per rpm-second of accumulated speed error.
+ *
+ * @min 0.0
+ * @max 0.01
+ * @decimal 8
+ * @increment 0.000001
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_RPM_KI, 0.00005f);
+
+/**
+ * RPM loop output limit
+ *
+ * Symmetric saturation of the rpm loop trim added on top of the static map.
+ * Keeps the inner loop authority bounded so it can only correct map error.
+ *
+ * @min 0.0
+ * @max 1.0
+ * @decimal 3
+ * @increment 0.01
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_RPM_LIM, 0.15f);
+
+/**
+ * RPM measurement timeout
+ *
+ * The rpm loop falls back to the static map and resets its integrator when the
+ * rpm topic is older than this.
+ *
+ * @unit s
+ * @min 0.02
+ * @max 2.0
+ * @decimal 2
+ * @increment 0.01
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_RPM_TOUT, 0.2f);
+
+/**
+ * Use filtered rpm measurement
+ *
+ * 1 uses rpm.rpm_estimate (low pass filtered), 0 uses rpm.rpm_raw.
+ *
+ * @boolean
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_INT32(TFC_RPM_FIL, 1);
+
+/**
  * PWM to thrust conversion factor
  *
  * PWM to thrust conversion factor of the mortor 1.
@@ -680,6 +759,22 @@ PARAM_DEFINE_FLOAT(TFC_FAC_I, 0.7f);
 //  * @group Thrust Feedback Control
 //  */
 // PARAM_DEFINE_FLOAT(SENSOR4_BIAS2, -465.0f);
+
+/**
+ * Load mass above the force sensor
+ *
+ * Mass mounted on top of the force sensor. Used to compensate the inertial
+ * force this load applies to the sensor when the rig accelerates:
+ * F_corr = mass * vehicle_acceleration.xyz[1].
+ *
+ * @unit kg
+ * @min 0.0
+ * @max 5.0
+ * @decimal 3
+ * @increment 0.001
+ * @group Thrust Feedback Control
+ */
+PARAM_DEFINE_FLOAT(TFC_LOAD_M_KG, 0.330f);
 
 /**
  * Use filtered thrust data or not

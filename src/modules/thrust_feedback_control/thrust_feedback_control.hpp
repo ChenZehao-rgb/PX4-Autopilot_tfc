@@ -77,7 +77,9 @@
 #include <uORB/topics/rc_channels.h>
 #include <uORB/topics/vehicle_status.h>
 #include <uORB/topics/vehicle_angular_velocity.h>
+#include <uORB/topics/vehicle_acceleration.h>
 #include <uORB/topics/manual_control_setpoint.h>
+#include <uORB/topics/rpm.h>
 #include "thrust_kalman_filter.hpp"
 #include "FilteredDerivative.hpp"
 
@@ -107,6 +109,12 @@ private:
         (ParamFloat<px4::params::TFC_BET_A_DEG>) _param_tfc_bet_a_deg,
         (ParamInt<px4::params::TFC_BET_RES_EN>) _param_tfc_bet_res_en,
         (ParamFloat<px4::params::TFC_BET_RES_SCL>) _param_tfc_bet_res_scl,
+        (ParamInt<px4::params::TFC_RPM_MODE>) _param_tfc_rpm_mode,
+        (ParamFloat<px4::params::TFC_RPM_KP>) _param_tfc_rpm_kp,
+        (ParamFloat<px4::params::TFC_RPM_KI>) _param_tfc_rpm_ki,
+        (ParamFloat<px4::params::TFC_RPM_LIM>) _param_tfc_rpm_lim,
+        (ParamFloat<px4::params::TFC_RPM_TOUT>) _param_tfc_rpm_tout,
+        (ParamInt<px4::params::TFC_RPM_FIL>) _param_tfc_rpm_fil,
         (ParamFloat<px4::params::TFC_IOLC_K>) _param_tfc_iolc_k,
         (ParamFloat<px4::params::TFC_IOLC_KI>) _param_tfc_iolc_ki,
         (ParamFloat<px4::params::TFC_LIM_I>) _param_tfc_lim_i,
@@ -147,6 +155,7 @@ private:
         // (ParamFloat<px4::params::SENSOR3_BIAS2>) _param_sensor3_bias2,
         // (ParamFloat<px4::params::SENSOR4_BIAS1>) _param_sensor4_bias1,
         // (ParamFloat<px4::params::SENSOR4_BIAS2>) _param_sensor4_bias2,
+        (ParamFloat<px4::params::TFC_LOAD_M_KG>) _param_tfc_load_m_kg,
         (ParamFloat<px4::params::THR_USE_FIL>) _param_tfc_use_filtered_thrust,
         (ParamFloat<px4::params::ALPHA_TAU>) _param_alpha_tau
     )
@@ -218,6 +227,12 @@ private:
 
     uORB::Subscription	_vehicle_angular_velocity_sub{ORB_ID(vehicle_angular_velocity)};
     vehicle_angular_velocity_s    _vehicle_angular_velocity{};
+
+    uORB::Subscription	_vehicle_acceleration_sub{ORB_ID(vehicle_acceleration)};
+    vehicle_acceleration_s    _vehicle_acceleration{};
+
+    uORB::Subscription	_rpm_sub{ORB_ID(rpm)};
+    rpm_s               _rpm{};
 
     uORB::Subscription	_mcs_sub{ORB_ID(manual_control_setpoint)};
     manual_control_setpoint_s    _mcs{};

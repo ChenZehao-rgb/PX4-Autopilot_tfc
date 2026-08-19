@@ -50,6 +50,10 @@ constexpr float kBetLengthDefaultM = 1.5f;
 constexpr float kBetLengthMinM = 0.5f;
 constexpr float kBetLengthMaxM = 2.0f;
 constexpr uint64_t kBetWarnIntervalUs = 1000000;
+// 只有 1 号电机装了 AS5600 转速传感器，其余电机只能用映射开环
+constexpr int kRpmSensorMotorIndex = 0;
+// 拉力传感器的测量轴对应机体 FRD 坐标系的 y 轴（vehicle_acceleration.xyz[1]）
+constexpr int kLoadAccelAxis = 1;
 
 struct PiState {
 	float integral{0.f};
@@ -90,6 +94,16 @@ float clean_bet_length_m(float length_m)
 {
 	return math::constrain(PX4_ISFINITE(length_m) ? length_m : kBetLengthDefaultM,
 			       kBetLengthMinM, kBetLengthMaxM);
+}
+
+// 传感器上方载荷的惯性力补偿：F = m * a，m 由参数给出，a 取机体测量轴加速度
+float load_inertial_force_n(float load_mass_kg, float accel_m_s2)
+{
+	if (!PX4_ISFINITE(load_mass_kg) || !PX4_ISFINITE(accel_m_s2)) {
+		return 0.f;
+	}
+
+	return fmaxf(load_mass_kg, 0.f) * accel_m_s2;
 }
 
 float clean_yaw_rate_rad_s(float yaw_rate_rad_s)
@@ -184,6 +198,45 @@ float update_pi(PiState &state, float error_n, float kp, float ki, float lim_i, 
 	return p_out + i_out;
 }
 
+// 转速环 PI：输出为归一化控制量的修正量，带钳位抗饱和（条件积分）
+float update_rpm_pi(PiState &state, float error_rpm, float kp, float ki, float lim, float dt_s)
+{
+	if (!PX4_ISFINITE(error_rpm) || !PX4_ISFINITE(kp) || !PX4_ISFINITE(ki) || !PX4_ISFINITE(lim)) {
+		state.reset();
+		return 0.f;
+	}
+
+	const float out_limit = fmaxf(lim, 0.f);
+	const float p_out = kp * error_rpm;
+
+	if (fabsf(ki) > 1e-9f) {
+		const float candidate_integral = state.integral + error_rpm * dt_s;
+		const float candidate_out = p_out + ki * candidate_integral;
+
+		// 只有输出未饱和、或者本次积分是在把输出拉回限幅内时才继续积分
+		if (fabsf(candidate_out) < out_limit || candidate_out * error_rpm <= 0.f) {
+			state.integral = candidate_integral;
+		}
+
+	} else {
+		state.integral = 0.f;
+	}
+
+	return math::constrain(p_out + ki * state.integral, -out_limit, out_limit);
+}
+
+void warn_rpm_stale_once_per_second(uint64_t now, float age_s)
+{
+	static uint64_t last_warn_us = 0;
+
+	if (now - last_warn_us < kBetWarnIntervalUs) {
+		return;
+	}
+
+	last_warn_us = now;
+	PX4_WARN("TFC rpm measurement stale (%.3fs), falling back to rpm->control map", (double)age_s);
+}
+
 void reset_vector4(matrix::Vector<float, 4> &values)
 {
 	for (int i = 0; i < kMotorCount; ++i) {
@@ -228,6 +281,7 @@ int ThrustFeedbackControl::main()
 	pressure_force_sensor_s sensordata{};
 	actuator_motors_s thrustdesireddata{};
 	PiState pi_states[kMotorCount]{};
+	PiState rpm_pi_states[kMotorCount]{};
 	bool sensor_updated = false;
 	bool desired_updated = false;
 	float max_thrust_grams = 1000 * _param_tfc_thrust_max.get();
@@ -243,6 +297,8 @@ int ThrustFeedbackControl::main()
 		if (_vehicle_status_sub.update(&_vehicle_status)) {
 			_armed = (_vehicle_status.arming_state == vehicle_status_s::ARMING_STATE_ARMED);
 		}
+
+		_vehicle_acceleration_sub.update(&_vehicle_acceleration);
 
 		if (_mcs_sub.update(&_mcs)) {
 			const float normalized_throttle = clean_normalized_control((_mcs.throttle + 1.f) * 0.5f);
@@ -269,7 +325,11 @@ int ThrustFeedbackControl::main()
 				thrustdata.timestamp = hrt_absolute_time();
 				static uint64_t last_sensor_timestamp = thrustdata.timestamp;
 
-				thrustdata.thrust_raw_data_1 = grams_to_newtons(static_cast<float>(sensordata.sensor2));
+				// 载荷（约 330g）在机体加速时压/拉传感器，需按 m*a 修正读数
+				const float load_force_n = load_inertial_force_n(_param_tfc_load_m_kg.get(),
+							  _vehicle_acceleration.xyz[kLoadAccelAxis]);
+
+				thrustdata.thrust_raw_data_1 = grams_to_newtons(static_cast<float>(sensordata.sensor2)) + load_force_n;
 				// thrustdata.thrust_raw_data_2 = grams_to_newtons(static_cast<float>(sensordata.sensor2)
 				// 			       + _param_sensor2_bias1.get() + _param_sensor2_bias2.get());
 				// thrustdata.thrust_raw_data_3 = grams_to_newtons(static_cast<float>(sensordata.sensor3)
@@ -321,11 +381,13 @@ int ThrustFeedbackControl::main()
 		}
 
 		_vehicle_angular_velocity_sub.update(&_vehicle_angular_velocity);
+		_rpm_sub.update(&_rpm);
 
 		if (!_armed) {
 			sensor_updated = false;
 			desired_updated = false;
 			reset_pi_states(pi_states);
+			reset_pi_states(rpm_pi_states);
 			reset_vector4(_control_output);
 			reset_vector4(_total_output);
 			reset_vector4(_iolc_u_ff);
@@ -359,7 +421,26 @@ int ThrustFeedbackControl::main()
 			const float ki = _param_tfc_pid_ki.get();
 			const float lim_i = _param_tfc_pid_lim_i.get();
 
+			// 转速闭环：仅在使用模型前馈的控制模式(1/4)下生效
+			const int ctl_mode = _param_tfc_ctl_mode.get();
+			const bool mode_uses_model_ff = (ctl_mode == 1) || (ctl_mode == 4);
+			// 只有本模块真正接管电机输出时才闭环，否则积分会对着不响应的转速累积
+			const bool output_engaged = (_param_tfc_start.get() > 0.5f) && (_param_tfc_start.get() < 1.5f);
+			const bool rpm_loop_enabled = (_param_tfc_rpm_mode.get() == 1) && mode_uses_model_ff && output_engaged;
+			const float rpm_timeout_s = math::constrain(_param_tfc_rpm_tout.get(), 0.02f, 2.f);
+			const float rpm_age_s = (_rpm.timestamp > 0 && now >= _rpm.timestamp)
+						? (now - _rpm.timestamp) * 1e-6f : INFINITY;
+			const float rpm_raw_measurement = (_param_tfc_rpm_fil.get() != 0) ? _rpm.rpm_estimate : _rpm.rpm_raw;
+			// 传感器只测转速大小，方向由 AS5600_DIR 决定，这里取绝对值与 BET 模型(正转速)对齐
+			const float rpm_measurement = PX4_ISFINITE(rpm_raw_measurement) ? fabsf(rpm_raw_measurement) : 0.f;
+			const bool rpm_measurement_valid = PX4_ISFINITE(rpm_raw_measurement) && (rpm_age_s < rpm_timeout_s);
+
 			float rpm_ff[kMotorCount] = {};
+			float rpm_meas[kMotorCount] = {};
+			float rpm_error[kMotorCount] = {};
+			float rpm_loop_out[kMotorCount] = {};
+			float rpm_map_out[kMotorCount] = {};
+			uint8_t rpm_loop_active[kMotorCount] = {};
 			float bet_achieved_lift_n[kMotorCount] = {};
 			int bet_status[kMotorCount] = {};
 			int bet_iterations[kMotorCount] = {};
@@ -374,6 +455,7 @@ int ThrustFeedbackControl::main()
 
 				if (_thrust_desired(i) <= 1e-5f) {
 					pi_states[i].reset();
+					rpm_pi_states[i].reset();
 					_iolc_u_ff(i) = 0.f;
 					_control_output(i) = 0.f;
 					_total_output(i) = 0.f;
@@ -422,23 +504,48 @@ int ThrustFeedbackControl::main()
 				thrust_error[i] = _thrust_desired(i) - _thrust_measure(i);
 				dt_s[i] = control_dt_s(pi_states[i], now);
 				feedback_out[i] = update_pi(pi_states[i], thrust_error[i], kp, ki, lim_i, dt_s[i]);
+
+				// 转速环：静态映射作为基准前馈，PI 只补映射误差(电压/温度/桨叶差异)
+				rpm_map_out[i] = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
+				float u_ff_from_rpm = rpm_map_out[i];
+
+				if (rpm_loop_enabled && i == kRpmSensorMotorIndex) {
+					if (rpm_measurement_valid) {
+						rpm_meas[i] = rpm_measurement;
+						rpm_error[i] = rpm_ff[i] - rpm_meas[i];
+						rpm_loop_out[i] = update_rpm_pi(rpm_pi_states[i], rpm_error[i],
+										_param_tfc_rpm_kp.get(), _param_tfc_rpm_ki.get(),
+										_param_tfc_rpm_lim.get(), dt_s[i]);
+						u_ff_from_rpm = math::constrain(rpm_map_out[i] + rpm_loop_out[i], 0.f, 1.f);
+						rpm_loop_active[i] = 1;
+
+					} else {
+						// 转速数据超时：退回纯映射，清积分避免复位时跳变
+						rpm_pi_states[i].reset();
+						warn_rpm_stale_once_per_second(now, rpm_age_s);
+					}
+
+				} else {
+					rpm_pi_states[i].reset();
+				}
+
 				// _control_output(i) = feedback_out[i]; // 注释以关闭反馈
-				if(_param_tfc_ctl_mode.get() == 1){
+				if(ctl_mode == 1){
 					// 前馈控制
-					_iolc_u_ff(i) = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
+					_iolc_u_ff(i) = u_ff_from_rpm;
 					_control_output(i) = 0.f;
-				}else if(_param_tfc_ctl_mode.get() == 2){
+				}else if(ctl_mode == 2){
 					// 反馈控制
 					_iolc_u_ff(i) = 0.f;
 					_control_output(i) = feedback_out[i];
-				}else if(_param_tfc_ctl_mode.get() == 3){
+				}else if(ctl_mode == 3){
 					// 固定前馈+反馈控制
 					_iolc_u_ff(i) = 0.517f; // 固定前馈值
 					_control_output(i) = feedback_out[i];
 				}
-				else if(_param_tfc_ctl_mode.get() == 4){
+				else if(ctl_mode == 4){
 					// 前馈+反馈控制
-					_iolc_u_ff(i) = math::constrain(rpm_to_control_ff(rpm_ff[i], i), 0.f, 1.f);
+					_iolc_u_ff(i) = u_ff_from_rpm;
 					_control_output(i) = feedback_out[i];
 				}
 				_total_output(i) = math::constrain(_iolc_u_ff(i) + _control_output(i), 0.f, 1.f);
@@ -461,6 +568,11 @@ int ThrustFeedbackControl::main()
 				thrustcontroldata.thrust_feedforward_out[i] = _iolc_u_ff(i);
 				thrustcontroldata.thrust_control_out[i] = _total_output(i);
 				thrustcontroldata.bet_lookup_time_us[i] = bet_lookup_time_us[i];
+				thrustcontroldata.motor_speed_meas[i] = rpm_meas[i];
+				thrustcontroldata.motor_speed_error[i] = rpm_error[i];
+				thrustcontroldata.rpm_loop_out[i] = rpm_loop_out[i];
+				thrustcontroldata.rpm_map_out[i] = rpm_map_out[i];
+				thrustcontroldata.rpm_loop_active[i] = rpm_loop_active[i];
 			}
 
 			thrustcontroldata.kp = kp;

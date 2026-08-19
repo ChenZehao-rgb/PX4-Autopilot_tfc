@@ -29,4 +29,11 @@ int32[4] bet_status
 int32[4] bet_iterations
 uint32[4] bet_lookup_time_us
 
+# rpm inner loop (feedforward generation)
+float32[4] motor_speed_meas     # measured rotor speed [rpm]
+float32[4] motor_speed_error    # rpm setpoint - rpm measured
+float32[4] rpm_loop_out         # normalized control trim produced by the rpm loop
+float32[4] rpm_map_out          # normalized control from the static rpm->control map
+uint8[4] rpm_loop_active        # 1 when the rpm loop is closing on a valid measurement
+
 # TOPICS thrust_control_data
