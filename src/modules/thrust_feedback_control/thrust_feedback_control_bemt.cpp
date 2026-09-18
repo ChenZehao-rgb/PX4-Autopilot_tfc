@@ -686,6 +686,16 @@ int ThrustFeedbackControl::main()
 			thrustcontroldata.timestamp = now;
 			_thrustcontroldata_pub.publish(thrustcontroldata);
 
+			if(_thrust_desired(0) >13.0f && _thrust_desired(0) < 17.0f){
+				thrustcontrol.control[0] = 0.408f; // 15N 对应的归一化控制量
+			}
+			else if(_thrust_desired(0) > 17.0f && _thrust_desired(0) < 22.0f){
+				thrustcontrol.control[0] = 0.530f; // 20N 对应的归一化控制量
+			}
+			else if(_thrust_desired(0) > 22.0f && _thrust_desired(0) < 27.0f){
+				thrustcontrol.control[0] = 0.641f; // 25N 对应的归一化控制量
+			}
+
 			if (thrustcontroldata.thrust_start > 0.5f && thrustcontroldata.thrust_start < 1.5f) {
 				for (int i = 0; i < kMotorCount; ++i) {
 					thrustcontrol.control[i] = thrustcontroldata.thrust_control_out[i];
